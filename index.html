@@ -17,7 +17,7 @@
 :root{
   --bg:#E8EDF1; --surface:#FFFFFF; --surface-2:#F1F4F7; --ink:#17222E; --ink-2:#5A6878; --line:#D3DCE4;
   --primary:#2F5BD3; --on-primary:#FFFFFF; --danger:#C2334D;
-  --c-msg:#13897D; --c-notes:#C98A12; --c-calc:#3E4A5A; --c-cal:#C4385E; --c-files:#6B4FC4;
+  --c-msg:#13897D; --c-notes:#C98A12; --c-calc:#3E4A5A; --c-cal:#C4385E; --c-files:#6B4FC4; --c-tasks:#2C8A57;
   --shadow:0 1px 2px rgba(23,34,46,.06), 0 6px 18px rgba(23,34,46,.07);
   --font:"Sora", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme:light;
@@ -29,7 +29,7 @@
   :root:not([data-theme="light"]){
     --bg:#0E151D; --surface:#17212C; --surface-2:#1F2B38; --ink:#E6ECF2; --ink-2:#93A1B0; --line:#2A3847;
     --primary:#7397FF; --on-primary:#0E151D; --danger:#FF6F86;
-    --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F; --c-files:#9C84F0;
+    --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F; --c-files:#9C84F0; --c-tasks:#46C487;
     --shadow:0 1px 2px rgba(0,0,0,.3);
     color-scheme:dark;
   }
@@ -37,7 +37,7 @@
 :root[data-theme="dark"]{
   --bg:#0E151D; --surface:#17212C; --surface-2:#1F2B38; --ink:#E6ECF2; --ink-2:#93A1B0; --line:#2A3847;
   --primary:#7397FF; --on-primary:#0E151D; --danger:#FF6F86;
-  --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F; --c-files:#9C84F0;
+  --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F; --c-files:#9C84F0; --c-tasks:#46C487;
   --shadow:0 1px 2px rgba(0,0,0,.3);
   color-scheme:dark;
 }
@@ -282,6 +282,38 @@ a.row-item{cursor:pointer}
 .att-audio{display:block;width:240px;max-width:100%}
 .viewer-img{display:block;max-width:100%;max-height:60vh;margin:0 auto 14px;border-radius:12px}
 
+/* Módulo Tarefas */
+.quick-add{display:flex;gap:8px}
+.quick-add input{flex:1;min-width:0;height:50px;border-radius:16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:0 16px;font:inherit}
+.qa-btn{flex:none;width:50px;height:50px;border-radius:16px;border:0;background:var(--c-tasks);color:#fff;font-size:1.6rem;font-weight:300;cursor:pointer}
+.sec.late{color:var(--danger)}
+.sec .muted{font-weight:400;font-size:.85rem}
+.trow{display:flex;align-items:center;gap:6px;background:var(--surface);border-radius:16px;padding:4px 14px 4px 4px;margin-bottom:8px}
+.tcheck{flex:none;width:46px;height:46px;border:0;background:none;padding:0;display:grid;place-items:center;cursor:pointer}
+.tcheck .ring{width:24px;height:24px;border-radius:50%;border:2px solid var(--ink-2);display:grid;place-items:center;color:transparent;transition:background .15s,border-color .15s,color .15s}
+.tcheck .ring svg{width:14px;height:14px}
+.tcheck.p1 .ring{border-color:var(--primary)}
+.tcheck.p2 .ring{border-color:var(--c-notes)}
+.tcheck.p3 .ring{border-color:var(--danger)}
+.tcheck[aria-pressed="true"] .ring{background:var(--c-tasks);border-color:var(--c-tasks);color:#fff}
+.tinfo{flex:1;min-width:0;border:0;background:none;padding:10px 0;text-align:left;cursor:pointer;color:var(--ink)}
+.tinfo b{display:block;font-weight:500;overflow-wrap:anywhere;transition:color .2s}
+.tinfo small{display:flex;flex-wrap:wrap;gap:3px 12px;margin-top:3px;font-size:.78rem;color:var(--ink-2)}
+.tinfo small em{font-style:normal}
+.tinfo small .late{color:var(--danger);font-weight:600}
+.trow.done .tinfo b{text-decoration:line-through;color:var(--ink-2)}
+.tflag{flex:none;width:8px;height:8px;border-radius:50%}
+.tflag.p2{background:var(--c-notes)}
+.tflag.p3{background:var(--danger)}
+.today-ev.task time{color:var(--c-tasks)}
+.block{margin-bottom:14px}
+.block-label{font-size:.8rem;color:var(--ink-2);margin:0 0 6px}
+.subs{list-style:none;margin:0;padding:0}
+.subs li{display:flex;align-items:center;gap:8px}
+.subs input[type=checkbox]{flex:none;width:20px;height:20px;accent-color:var(--c-tasks)}
+.subs .sub-text{flex:1;min-width:0;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:9px 2px;font:inherit}
+.subs .sub-text.done{text-decoration:line-through;color:var(--ink-2)}
+
 /* Módulo Arquivos */
 .frow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
 .fthumb{flex:none;width:54px;height:54px;border-radius:14px;border:0;padding:0;background:var(--surface);display:grid;place-items:center;font-size:1.5rem;overflow:hidden;cursor:pointer}
@@ -370,9 +402,9 @@ const tag = k => `<span class="tag ${TAGS[k][0]}">${TAGS[k][1]}</span>`;
    (plugin Capacitor) sem mudar os módulos.
    ========================================================= */
 const DB = (() => {
-  const NAME = 'nucleo', VERSION = 4;
+  const NAME = 'nucleo', VERSION = 5;
   const KEYS = { notes: 'id', events: 'id', calcHistory: 'id', settings: 'key', outbox: 'id',
-                 contacts: 'id', requests: 'id', messages: 'id', sim_users: 'id', sim_requests: 'id', sim_messages: 'id', files: 'id', user_files: 'id' };
+                 contacts: 'id', requests: 'id', messages: 'id', sim_users: 'id', sim_requests: 'id', sim_messages: 'id', files: 'id', user_files: 'id', tasks: 'id' };
   let idb = null, mem = null, engine = 'none';
   const p = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
   const useMemory = () => { mem = {}; for (const k in KEYS) mem[k] = new Map(); engine = 'memory'; };
@@ -399,6 +431,7 @@ const DB = (() => {
           }
           if (old < 3) d.createObjectStore('files', { keyPath: 'id' });   // anexos guardados no aparelho
           if (old < 4) d.createObjectStore('user_files', { keyPath: 'id' }); // módulo Arquivos
+          if (old < 5) d.createObjectStore('tasks', { keyPath: 'id' });      // módulo Tarefas
         };
         req.onsuccess = () => { idb = req.result; idb.onversionchange = () => idb.close(); engine = 'indexeddb'; res(engine); };
         req.onerror = () => { useMemory(); res(engine); };
@@ -458,6 +491,7 @@ function Repository(name) {
 }
 const Notes = Repository('notes');
 const Events = Repository('events');
+const Tasks = Repository('tasks');
 const Settings = {
   async get(key, fallback = null) { const r = await DB.get('settings', key); return r ? r.value : fallback; },
   set(key, value) { return DB.put('settings', { key, value }); }
@@ -556,7 +590,7 @@ async function route() {
 /* =========================================================
    6. TELA INICIAL
    ========================================================= */
-const FUTURE_MODULES = [['👥', 'Contatos'], ['🖼️', 'Galeria'], ['📷', 'Câmera'], ['🎙️', 'Gravador'], ['✅', 'Tarefas']];
+const FUTURE_MODULES = [['👥', 'Contatos'], ['🖼️', 'Galeria'], ['📷', 'Câmera'], ['🎙️', 'Gravador']];
 const Home = {
   id: 'home', name: 'Início', timer: null,
   async mount(view) {
@@ -596,9 +630,12 @@ const Home = {
     if (unread && msgIc) msgIc.insertAdjacentHTML('beforeend', `<i class="badge n">${unread > 99 ? '99+' : unread}</i>`);
     const today = ymd(new Date());
     const evs = (await Events.list()).filter(e => e.date === today).sort(byTime);
-    $('#today').innerHTML = evs.length
+    const tks = (await Tasks.list()).filter(t => !t.done && t.dueDate && t.dueDate <= today).sort(taskSort);
+    $('#today').innerHTML = evs.length || tks.length
       ? evs.slice(0, 4).map(e => `<a class="today-ev" href="#/calendar/${today}"><time>${e.time || 'Dia todo'}</time><span>${esc(e.title)}</span></a>`).join('')
         + (evs.length > 4 ? `<p class="muted small">+${evs.length - 4} no calendário</p>` : '')
+        + tks.slice(0, 3).map(t => `<a class="today-ev task" href="#/tasks"><time>${t.dueDate < today ? 'Atrasada' : t.dueTime || 'Tarefa'}</time><span>${esc(t.title)}</span></a>`).join('')
+        + (tks.length > 3 ? `<p class="muted small">+${tks.length - 3} em Tarefas</p>` : '')
       : '<p class="muted" style="margin:0">Nada marcado para hoje.</p>';
   },
   unmount() { clearInterval(this.timer); }
@@ -613,7 +650,7 @@ const CONFIG = {
   // NUNCA coloque aqui a chave secreta (sb_secret_...).
   SUPABASE_KEY: 'sb_publishable_i-h-YWU1o1aPMGc3n92TNw_UHJbUSdt'
 };
-const APP_VERSION = '3.3';                     // mostre esta versão em Status para conferir se o celular atualizou
+const APP_VERSION = '3.4';                     // mostre esta versão em Status para conferir se o celular atualizou
 const appUrl = () => location.origin + location.pathname;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const iso = s => new Date(s).toISOString();
@@ -830,6 +867,7 @@ const Realtime = {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notes', filter: 'user_id=eq.' + uid }, go)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: 'user_id=eq.' + uid }, go)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_files', filter: 'user_id=eq.' + uid }, go)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: 'user_id=eq.' + uid }, go)
       .subscribe(status => { this.live = status === 'SUBSCRIBED'; Bus.emit('conn'); });
   },
   stop() { if (this.ch && Cloud.sb) Cloud.sb.removeChannel(this.ch); this.ch = null; this.live = false; }
@@ -884,8 +922,8 @@ const Identity = {
 
 /* 7.8 Conta: entrar, sair, trocar de conta ----------------- */
 async function wipeUserData() {
-  for (const n of ['notes', 'events', 'user_files', 'outbox', 'contacts', 'requests', 'messages', 'files']) await DB.clear(n);
-  for (const k of ['profile', 'cloudUserId', 'pull:notes', 'pull:events', 'pull:user_files', 'msgBackfilled']) await DB.del('settings', k);
+  for (const n of ['notes', 'events', 'user_files', 'tasks', 'outbox', 'contacts', 'requests', 'messages', 'files']) await DB.clear(n);
+  for (const k of ['profile', 'cloudUserId', 'pull:notes', 'pull:events', 'pull:user_files', 'pull:tasks', 'msgBackfilled']) await DB.del('settings', k);
   Identity.profile = null;
 }
 const Account = {
@@ -896,9 +934,9 @@ const Account = {
         if (prev) await wipeUserData();               // outra conta usou este aparelho
         for (const r of await DB.all('messages')) await DB.del('files', r.id);   // anexos de outra conta (arquivos pessoais ficam)
         for (const n of ['contacts', 'requests', 'messages', 'sim_users', 'sim_requests', 'sim_messages']) await DB.clear(n);
-        for (const k of ['pull:notes', 'pull:events', 'pull:user_files', 'msgBackfilled']) await DB.del('settings', k);
+        for (const k of ['pull:notes', 'pull:events', 'pull:user_files', 'pull:tasks', 'msgBackfilled']) await DB.del('settings', k);
         // notas e eventos criados antes de entrar passam a ser desta conta
-        for (const s of ['notes', 'events', 'user_files']) for (const r of await DB.all(s)) await Outbox.enqueue(s, r.id, r.deleted ? 'delete' : 'upsert');
+        for (const s of ['notes', 'events', 'user_files', 'tasks']) for (const r of await DB.all(s)) await Outbox.enqueue(s, r.id, r.deleted ? 'delete' : 'upsert');
         await Settings.set('cloudUserId', user.id);
       }
       await Identity.fromCloud(user);
@@ -932,12 +970,18 @@ function toRow(table, r) {
   const row = { id: r.id, created_at: r.createdAt, updated_at: r.updatedAt, version: r.version || 1, device_id: r.deviceId || null, deleted: !!r.deleted };
   if (table === 'notes') { row.title = r.title || ''; row.body = r.body || ''; row.category = r.category || ''; row.favorite = !!r.favorite; }
   else if (table === 'user_files') { row.name = r.name || 'arquivo'; row.size = r.size || 0; row.type = r.type || ''; row.path = r.path; }
+  else if (table === 'tasks') {
+    Object.assign(row, { title: r.title || 'Tarefa', notes: r.notes || '', due_date: r.dueDate || null, due_time: r.dueDate ? (r.dueTime || '') : '',
+      priority: Number(r.priority) || 0, list: r.list || '', done: !!r.done, done_at: r.doneAt || null, subtasks: r.subtasks || [] });
+  }
   else { row.title = r.title || 'Sem título'; row.description = r.description || ''; row.date = r.date; row.time = r.time || ''; row.reminder = String(r.reminder ?? ''); }
   return row;
 }
 function fromRow(table, row) {
   const r = { id: row.id, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at), version: row.version, deviceId: row.device_id, deleted: !!row.deleted, syncStatus: 'synced' };
-  for (const f of (table === 'notes' ? NOTE_FIELDS : table === 'user_files' ? FILE_FIELDS : EVENT_FIELDS)) r[f] = row[f];
+  for (const f of (table === 'notes' ? NOTE_FIELDS : table === 'user_files' ? FILE_FIELDS : table === 'events' ? EVENT_FIELDS : [])) r[f] = row[f];
+  if (table === 'tasks') Object.assign(r, { title: row.title, notes: row.notes || '', dueDate: row.due_date || '', dueTime: row.due_time || '',
+    priority: row.priority || 0, list: row.list || '', done: !!row.done, doneAt: row.done_at ? iso(row.done_at) : null, subtasks: row.subtasks || [] });
   if (table === 'user_files') r.uploaded = true;
   return r;
 }
@@ -966,6 +1010,8 @@ const Sync = {
       changed = (await this.pullRecords('events')) || changed;
       try { changed = (await this.pullRecords('user_files')) || changed; this.filesReady = true; }
       catch (e) { if (mapErr(e).code === 'SCHEMA') this.filesReady = false; else throw e; }   // SQL de arquivos ainda não rodado
+      try { changed = (await this.pullRecords('tasks')) || changed; this.tasksReady = true; }
+      catch (e) { if (mapErr(e).code === 'SCHEMA') this.tasksReady = false; else throw e; }   // SQL de tarefas ainda não rodado
       if (Identity.profile) { await this.ensureRegistered(); await this.syncMessages(); }
       this.lastError = null; this.lastSync = now();
     } catch (e) {
@@ -982,7 +1028,7 @@ const Sync = {
   async pushRecords() {
     let changed = false;
     for (const o of await DB.all('outbox')) {
-      if (!['notes', 'events', 'user_files'].includes(o.entity)) continue;
+      if (!['notes', 'events', 'user_files', 'tasks'].includes(o.entity)) continue;
       let rec = await DB.get(o.entity, o.entityId);
       if (!rec || !UUID_RE.test(rec.id)) { await DB.del('outbox', o.id); continue; }
       try {
@@ -990,6 +1036,7 @@ const Sync = {
         await Cloud.q(Cloud.sb.from(o.entity).upsert(toRow(o.entity, rec), { onConflict: 'id' }));
       } catch (e) {
         if (o.entity === 'user_files' && e.code === 'SCHEMA') { this.filesReady = false; continue; }
+        if (o.entity === 'tasks' && e.code === 'SCHEMA') { this.tasksReady = false; continue; }
         if (e.code === 'NETWORK' || e.code === 'AUTH' || e.code === 'SCHEMA') throw e;
         console.error(e); continue;
       }
@@ -2238,6 +2285,207 @@ Platform.register({
 });
 
 /* =========================================================
+   10c. MÓDULO TAREFAS
+   ========================================================= */
+const PRIO = [['0', 'Nenhuma'], ['1', 'Baixa'], ['2', 'Média'], ['3', 'Alta']];
+const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+function addDays(k, n) { const [y, m, d] = k.split('-').map(Number); return ymd(new Date(y, m - 1, d + n)); }
+function isOverdue(t) {
+  if (t.done || !t.dueDate) return false;
+  const today = ymd(new Date()), d = new Date();
+  return t.dueDate < today || (t.dueDate === today && !!t.dueTime && t.dueTime < `${pad(d.getHours())}:${pad(d.getMinutes())}`);
+}
+function dueLabel(t) {
+  if (!t.dueDate) return '';
+  const today = ymd(new Date());
+  let lbl;
+  if (t.dueDate === today) lbl = 'Hoje';
+  else if (t.dueDate === addDays(today, 1)) lbl = 'Amanhã';
+  else if (t.dueDate === addDays(today, -1)) lbl = 'Ontem';
+  else {
+    const [y, m, d] = t.dueDate.split('-').map(Number), dt = new Date(y, m - 1, d);
+    const [ty, tm, td] = today.split('-').map(Number), diff = Math.round((dt - new Date(ty, tm - 1, td)) / 864e5);
+    lbl = diff > 1 && diff < 7 ? cap(dt.toLocaleDateString('pt-BR', { weekday: 'long' }))
+      : dt.toLocaleDateString('pt-BR', y === ty ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  return lbl + (t.dueTime ? ', ' + t.dueTime : '');
+}
+const taskSort = (a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999') || (a.dueTime || '99').localeCompare(b.dueTime || '99')
+  || (b.priority || 0) - (a.priority || 0) || a.createdAt.localeCompare(b.createdAt);
+
+Platform.register({
+  id: 'tasks', name: 'Tarefas', icon: '✅', colorVar: '--c-tasks',
+  state: { filter: 'todas' }, off: [],
+  unmount() { this.off.forEach(f => f()); this.off = []; },
+  async mount(view) {
+    view.innerHTML = `<div id="tk" class="pad" style="padding-top:4px">
+      <form class="quick-add" id="qa" autocomplete="off"><input id="qaIn" placeholder="Adicionar tarefa" maxlength="300" aria-label="Nova tarefa"><button class="qa-btn" aria-label="Adicionar tarefa">+</button></form>
+      <div class="chips" id="tchips" role="toolbar" aria-label="Filtrar tarefas"></div>
+      <div id="tnote"></div><div id="tlist"></div></div>`;
+    const root = $('#tk');
+    $('#qa').addEventListener('submit', e => { e.preventDefault(); this.quickAdd(); });
+    root.addEventListener('click', e => {
+      const c = e.target.closest('[data-f]');
+      if (c) { this.state.filter = c.dataset.f; this.render(); return; }
+      if (e.target.closest('#clearDone')) return this.clearDone();
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      const id = b.closest('[data-id]').dataset.id;
+      if (b.dataset.act === 'toggle') this.toggle(id, b); else this.edit(id);
+    });
+    this.off.push(Bus.on('sync', () => this.render()));
+    await this.render();
+  },
+
+  async render() {
+    if (!$('#tk')) return;
+    const all = await Tasks.list(), today = ymd(new Date()), tomorrow = addDays(today, 1);
+    const lists = [...new Set(all.map(t => t.list).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    if (this.state.filter.startsWith('list:') && !lists.includes(this.state.filter.slice(5))) this.state.filter = 'todas';
+    const f = this.state.filter, open = all.filter(t => !t.done);
+    const nToday = open.filter(t => t.dueDate && t.dueDate <= today).length;
+    const chips = [['hoje', 'Hoje' + (nToday ? ` (${nToday})` : '')], ['proximas', 'Próximas'], ['todas', 'Todas'], ['feitas', 'Concluídas'], ...lists.map(l => ['list:' + l, l])];
+    $('#tchips').innerHTML = chips.map(([k, l]) => `<button class="chip" data-f="${esc(k)}" aria-pressed="${f === k}">${esc(l)}</button>`).join('');
+    $('#tnote').innerHTML = Cloud.user && Sync.tasksReady === false
+      ? '<p class="sim-banner">A nuvem de tarefas ainda não foi criada: rode o SQL de tarefas no Supabase. Por enquanto elas ficam só neste aparelho.</p>' : '';
+
+    let sections;
+    if (f === 'feitas') {
+      sections = [['', all.filter(t => t.done).sort((a, b) => (b.doneAt || b.updatedAt).localeCompare(a.doneAt || a.updatedAt))]];
+    } else {
+      let base = open;
+      if (f === 'hoje') base = open.filter(t => t.dueDate && t.dueDate <= today);
+      if (f === 'proximas') base = open.filter(t => t.dueDate && t.dueDate > today);
+      if (f.startsWith('list:')) base = open.filter(t => t.list === f.slice(5));
+      base.sort(taskSort);
+      sections = [['Atrasadas', t => t.dueDate && t.dueDate < today], ['Hoje', t => t.dueDate === today], ['Amanhã', t => t.dueDate === tomorrow],
+        ['Próximos dias', t => t.dueDate > tomorrow], ['Sem data', t => !t.dueDate]].map(([n, fn]) => [n, base.filter(fn)]);
+    }
+    sections = sections.filter(([, l]) => l.length);
+    const empty = {
+      hoje: ['Nada para hoje.', 'Tarefas com prazo para hoje ou atrasadas aparecem aqui.'],
+      proximas: ['Nenhuma tarefa com data futura.', 'Toque numa tarefa para escolher uma data.'],
+      feitas: ['Nenhuma tarefa concluída ainda.', 'Toque no círculo de uma tarefa para concluir.'],
+      todas: all.length ? ['Tudo feito! 🎉', 'Nenhuma tarefa pendente.'] : ['Nenhuma tarefa ainda.', 'Escreva acima e toque em + para criar a primeira.']
+    }[f] || ['Nada pendente nesta lista.', 'Crie uma tarefa acima: ela entra nesta lista.'];
+    $('#tlist').innerHTML = sections.length
+      ? sections.map(([n, l]) => `${n ? `<h3 class="sec${n === 'Atrasadas' ? ' late' : ''}">${n} <span class="muted">${l.length}</span></h3>` : ''}${l.map(t => this.row(t)).join('')}`).join('')
+        + (f === 'feitas' ? '<button class="btn danger" id="clearDone" style="width:100%;margin-top:8px">Apagar concluídas</button>' : '')
+      : `<div class="empty"><p>${empty[0]}</p><p>${empty[1]}</p></div>`;
+  },
+
+  row(t) {
+    const subs = t.subtasks || [], sd = subs.filter(s => s.done).length, meta = [];
+    if (t.dueDate) meta.push(`<em class="${isOverdue(t) ? 'late' : ''}">📅 ${dueLabel(t)}</em>`);
+    if (t.list && !this.state.filter.startsWith('list:')) meta.push(`<em>${esc(t.list)}</em>`);
+    if (subs.length) meta.push(`<em>☑ ${sd}/${subs.length}</em>`);
+    if (t.notes) meta.push('<em>📝 Nota</em>');
+    const p = Number(t.priority) || 0;
+    return `<div class="trow${t.done ? ' done' : ''}" data-id="${esc(t.id)}">
+      <button class="tcheck p${p}" data-act="toggle" aria-pressed="${!!t.done}" aria-label="${t.done ? 'Marcar como pendente' : 'Concluir'}: ${esc(t.title)}"><i class="ring">${CHECK_SVG}</i></button>
+      <button class="tinfo" data-act="edit"><b>${esc(t.title)}</b>${meta.length ? `<small>${meta.join('')}</small>` : ''}</button>
+      ${p >= 2 && !t.done ? `<i class="tflag p${p}" title="Prioridade ${PRIO[p][1].toLowerCase()}" aria-label="Prioridade ${PRIO[p][1].toLowerCase()}"></i>` : ''}</div>`;
+  },
+
+  async quickAdd() {
+    const inp = $('#qaIn'), title = inp.value.trim().replace(/\s+/g, ' ');
+    if (!title) return;
+    const f = this.state.filter;
+    await Tasks.save({ title, notes: '', dueDate: f === 'hoje' ? ymd(new Date()) : '', dueTime: '', priority: 0,
+      list: f.startsWith('list:') ? f.slice(5) : '', done: false, doneAt: null, subtasks: [] });
+    inp.value = ''; inp.focus();
+    if (f === 'feitas' || f === 'proximas') this.state.filter = 'todas';
+    Sync.soon(); this.render();
+  },
+
+  async toggle(id, btn) {
+    const t = await Tasks.get(id); if (!t) return;
+    const done = !t.done;
+    btn.setAttribute('aria-pressed', done); btn.closest('.trow').classList.toggle('done', done);
+    await Tasks.save({ ...t, done, doneAt: done ? now() : null });
+    if (done) toast('Tarefa concluída');
+    Sync.soon();
+    setTimeout(() => this.render(), done ? 450 : 0);
+  },
+
+  async clearDone() {
+    const done = (await Tasks.list()).filter(t => t.done);
+    if (!done.length) return;
+    if (!(await confirmSheet(`Apagar ${done.length} tarefa${done.length > 1 ? 's' : ''} concluída${done.length > 1 ? 's' : ''}?`, 'Elas serão removidas deste aparelho e da nuvem.', 'Apagar'))) return;
+    for (const t of done) await Tasks.remove(t.id);
+    toast('Concluídas apagadas'); Sync.soon(); this.render();
+  },
+
+  async edit(id) {
+    const t = await Tasks.get(id); if (!t) return;
+    const lists = [...new Set((await Tasks.list()).map(x => x.list).filter(Boolean))];
+    let subs = (t.subtasks || []).map(s => ({ ...s })), prio = String(t.priority || 0);
+    const today = ymd(new Date());
+    const el = Sheet.open(`<form id="tf" novalidate><h2>Editar tarefa</h2>
+      <label class="field"><span>Título</span><input name="title" maxlength="300" value="${esc(t.title)}"></label>
+      <label class="field"><span>Notas</span><textarea name="notes" rows="3" maxlength="4000">${esc(t.notes || '')}</textarea></label>
+      <div class="row">
+        <label class="field"><span>Data</span><input type="date" name="dueDate" value="${esc(t.dueDate || '')}"></label>
+        <label class="field"><span>Horário</span><input type="time" name="dueTime" value="${esc(t.dueTime || '')}"></label>
+      </div>
+      <div class="chips" id="qd" style="padding-top:0"><button type="button" class="chip" data-d="0">Hoje</button><button type="button" class="chip" data-d="1">Amanhã</button><button type="button" class="chip" data-d="7">Em 1 semana</button><button type="button" class="chip" data-d="">Sem data</button></div>
+      <div class="block"><p class="block-label">Prioridade</p>
+        <div class="seg" id="tp" role="radiogroup" aria-label="Prioridade" style="margin-top:0">${PRIO.map(([v, l]) => `<button type="button" role="radio" data-p="${v}" aria-checked="${prio === v}">${l}</button>`).join('')}</div></div>
+      <label class="field"><span>Lista</span><input name="list" list="tlists" maxlength="40" placeholder="Ex.: Trabalho, Casa, Faculdade" value="${esc(t.list || '')}"></label>
+      <datalist id="tlists">${lists.map(l => `<option value="${esc(l)}">`).join('')}</datalist>
+      <div class="block"><p class="block-label">Subtarefas</p><ul class="subs" id="subs"></ul>
+        <div class="inline-form" style="margin-top:4px"><input id="subIn" placeholder="Adicionar subtarefa" maxlength="200" aria-label="Nova subtarefa"><button type="button" class="btn sm" id="subAdd">Adicionar</button></div></div>
+      <p class="hint">O aviso no horário da tarefa depende das notificações nativas do Android. ${tag('android')}</p>
+      <p class="err" id="terr" role="alert"></p>
+      <div class="actions"><button type="button" class="btn danger" id="tdel">Excluir</button><button type="button" class="btn grow" id="tcancel">Cancelar</button><button type="submit" class="btn primary grow">Salvar</button></div>
+    </form>`);
+    const form = el.querySelector('#tf');
+    const renderSubs = () => {
+      el.querySelector('#subs').innerHTML = subs.map((s, i) => `<li>
+        <input type="checkbox" data-i="${i}" ${s.done ? 'checked' : ''} aria-label="Concluir subtarefa">
+        <input class="sub-text${s.done ? ' done' : ''}" data-i="${i}" value="${esc(s.text)}" maxlength="200" aria-label="Subtarefa">
+        <button type="button" class="icon-btn" data-rm="${i}" aria-label="Remover subtarefa">×</button></li>`).join('');
+    };
+    renderSubs();
+    const addSub = () => {
+      const inp = el.querySelector('#subIn'), text = inp.value.trim(); if (!text) return;
+      subs.push({ id: uid(), text, done: false }); inp.value = ''; renderSubs(); inp.focus();
+    };
+    el.querySelector('#subAdd').onclick = addSub;
+    el.querySelector('#subIn').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addSub(); } });
+    el.querySelector('#subs').addEventListener('change', e => {
+      const i = e.target.dataset.i; if (i === undefined || e.target.type !== 'checkbox') return;
+      subs[i].done = e.target.checked; renderSubs();
+    });
+    el.querySelector('#subs').addEventListener('input', e => { if (e.target.classList.contains('sub-text')) subs[e.target.dataset.i].text = e.target.value; });
+    el.querySelector('#subs').addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if (b) { subs.splice(Number(b.dataset.rm), 1); renderSubs(); } });
+    el.querySelector('#qd').addEventListener('click', e => {
+      const b = e.target.closest('[data-d]'); if (!b) return;
+      form.dueDate.value = b.dataset.d === '' ? '' : addDays(today, Number(b.dataset.d));
+      if (!form.dueDate.value) form.dueTime.value = '';
+    });
+    el.querySelector('#tp').addEventListener('click', e => {
+      const b = e.target.closest('[data-p]'); if (!b) return;
+      prio = b.dataset.p; el.querySelectorAll('#tp [data-p]').forEach(x => x.setAttribute('aria-checked', x === b));
+    });
+    el.querySelector('#tcancel').onclick = () => Sheet.close();
+    el.querySelector('#tdel').onclick = async () => {
+      if (!(await confirmSheet('Excluir esta tarefa?', `“${t.title}” será removida deste aparelho e da nuvem.`))) return;
+      await Tasks.remove(t.id); toast('Tarefa excluída'); Sync.soon(); this.render();
+    };
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const title = form.title.value.trim().replace(/\s+/g, ' ');
+      if (!title) { el.querySelector('#terr').textContent = 'Dê um título à tarefa.'; return; }
+      const dueDate = form.dueDate.value;
+      if (form.dueTime.value && !dueDate) { el.querySelector('#terr').textContent = 'Para usar horário, escolha também uma data.'; return; }
+      await Tasks.save({ ...t, title, notes: form.notes.value.trim(), dueDate, dueTime: dueDate ? form.dueTime.value : '',
+        priority: Number(prio), list: form.list.value.trim(), subtasks: subs.filter(s => s.text.trim()).map(s => ({ ...s, text: s.text.trim() })) });
+      Sheet.close(); toast('Tarefa salva'); Sync.soon(); this.render();
+    });
+  }
+});
+
+/* =========================================================
    11. STATUS DO SISTEMA — o que é real e o que falta
    ========================================================= */
 const FEATURES = [
@@ -2265,6 +2513,9 @@ const FEATURES = [
   ['Fotos, vídeos, áudios e documentos nas mensagens (até 25 MB)', 'ok'],
   ['Arquivos: guardar, abrir, renomear e excluir, com nuvem', 'ok'],
   ['Arquivos das conversas reunidos num só lugar', 'ok'],
+  ['Tarefas: prazos, prioridade, listas e subtarefas, com nuvem', 'ok'],
+  ['Aviso no horário da tarefa', 'android'],
+  ['Tarefas que se repetem', 'future'],
   ['Grupos e chamadas', 'future']
 ];
 const Status = {
