@@ -650,7 +650,7 @@ const CONFIG = {
   // NUNCA coloque aqui a chave secreta (sb_secret_...).
   SUPABASE_KEY: 'sb_publishable_i-h-YWU1o1aPMGc3n92TNw_UHJbUSdt'
 };
-const APP_VERSION = '3.4';                     // mostre esta versão em Status para conferir se o celular atualizou
+const APP_VERSION = '3.5';                     // mostre esta versão em Status para conferir se o celular atualizou
 const appUrl = () => location.origin + location.pathname;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const iso = s => new Date(s).toISOString();
@@ -2319,7 +2319,7 @@ Platform.register({
   unmount() { this.off.forEach(f => f()); this.off = []; },
   async mount(view) {
     view.innerHTML = `<div id="tk" class="pad" style="padding-top:4px">
-      <form class="quick-add" id="qa" autocomplete="off"><input id="qaIn" placeholder="Adicionar tarefa" maxlength="300" aria-label="Nova tarefa"><button class="qa-btn" aria-label="Adicionar tarefa">+</button></form>
+      <form class="quick-add" id="qa" autocomplete="off"><input id="qaIn" placeholder="Adicionar tarefa" maxlength="300" aria-label="Nova tarefa"><button class="qa-btn" aria-label="Adicionar tarefa" title="Adicionar tarefa">+</button></form>
       <div class="chips" id="tchips" role="toolbar" aria-label="Filtrar tarefas"></div>
       <div id="tnote"></div><div id="tlist"></div></div>`;
     const root = $('#tk');
@@ -2363,9 +2363,9 @@ Platform.register({
     sections = sections.filter(([, l]) => l.length);
     const empty = {
       hoje: ['Nada para hoje.', 'Tarefas com prazo para hoje ou atrasadas aparecem aqui.'],
-      proximas: ['Nenhuma tarefa com data futura.', 'Toque numa tarefa para escolher uma data.'],
+      proximas: ['Nenhuma tarefa com data futura.', 'Toque em + para criar uma tarefa para amanhã ou outra data.'],
       feitas: ['Nenhuma tarefa concluída ainda.', 'Toque no círculo de uma tarefa para concluir.'],
-      todas: all.length ? ['Tudo feito! 🎉', 'Nenhuma tarefa pendente.'] : ['Nenhuma tarefa ainda.', 'Escreva acima e toque em + para criar a primeira.']
+      todas: all.length ? ['Tudo feito! 🎉', 'Nenhuma tarefa pendente.'] : ['Nenhuma tarefa ainda.', 'Escreva acima e toque em +, ou toque em + para abrir o formulário completo.']
     }[f] || ['Nada pendente nesta lista.', 'Crie uma tarefa acima: ela entra nesta lista.'];
     $('#tlist').innerHTML = sections.length
       ? sections.map(([n, l]) => `${n ? `<h3 class="sec${n === 'Atrasadas' ? ' late' : ''}">${n} <span class="muted">${l.length}</span></h3>` : ''}${l.map(t => this.row(t)).join('')}`).join('')
@@ -2386,15 +2386,18 @@ Platform.register({
       ${p >= 2 && !t.done ? `<i class="tflag p${p}" title="Prioridade ${PRIO[p][1].toLowerCase()}" aria-label="Prioridade ${PRIO[p][1].toLowerCase()}"></i>` : ''}</div>`;
   },
 
+  defaults() {                                   // a tarefa nova já nasce no filtro em que você está
+    const f = this.state.filter, today = ymd(new Date());
+    return { title: '', notes: '', dueDate: f === 'hoje' ? today : f === 'proximas' ? addDays(today, 1) : '', dueTime: '', priority: 0,
+      list: f.startsWith('list:') ? f.slice(5) : '', done: false, doneAt: null, subtasks: [] };
+  },
   async quickAdd() {
     const inp = $('#qaIn'), title = inp.value.trim().replace(/\s+/g, ' ');
-    if (!title) return;
-    const f = this.state.filter;
-    await Tasks.save({ title, notes: '', dueDate: f === 'hoje' ? ymd(new Date()) : '', dueTime: '', priority: 0,
-      list: f.startsWith('list:') ? f.slice(5) : '', done: false, doneAt: null, subtasks: [] });
+    if (!title) return this.edit(null);            // campo vazio: abre o formulário completo
+    await Tasks.save({ ...this.defaults(), title });
     inp.value = ''; inp.focus();
-    if (f === 'feitas' || f === 'proximas') this.state.filter = 'todas';
-    Sync.soon(); this.render();
+    if (this.state.filter === 'feitas') this.state.filter = 'todas';
+    toast('Tarefa adicionada'); Sync.soon(); this.render();
   },
 
   async toggle(id, btn) {
@@ -2416,12 +2419,12 @@ Platform.register({
   },
 
   async edit(id) {
-    const t = await Tasks.get(id); if (!t) return;
+    const isNew = !id, t = isNew ? this.defaults() : await Tasks.get(id); if (!t) return;
     const lists = [...new Set((await Tasks.list()).map(x => x.list).filter(Boolean))];
     let subs = (t.subtasks || []).map(s => ({ ...s })), prio = String(t.priority || 0);
     const today = ymd(new Date());
-    const el = Sheet.open(`<form id="tf" novalidate><h2>Editar tarefa</h2>
-      <label class="field"><span>Título</span><input name="title" maxlength="300" value="${esc(t.title)}"></label>
+    const el = Sheet.open(`<form id="tf" novalidate><h2>${isNew ? 'Nova tarefa' : 'Editar tarefa'}</h2>
+      <label class="field"><span>Título</span><input name="title" maxlength="300" value="${esc(t.title)}" ${isNew ? 'autofocus' : ''}></label>
       <label class="field"><span>Notas</span><textarea name="notes" rows="3" maxlength="4000">${esc(t.notes || '')}</textarea></label>
       <div class="row">
         <label class="field"><span>Data</span><input type="date" name="dueDate" value="${esc(t.dueDate || '')}"></label>
@@ -2436,7 +2439,7 @@ Platform.register({
         <div class="inline-form" style="margin-top:4px"><input id="subIn" placeholder="Adicionar subtarefa" maxlength="200" aria-label="Nova subtarefa"><button type="button" class="btn sm" id="subAdd">Adicionar</button></div></div>
       <p class="hint">O aviso no horário da tarefa depende das notificações nativas do Android. ${tag('android')}</p>
       <p class="err" id="terr" role="alert"></p>
-      <div class="actions"><button type="button" class="btn danger" id="tdel">Excluir</button><button type="button" class="btn grow" id="tcancel">Cancelar</button><button type="submit" class="btn primary grow">Salvar</button></div>
+      <div class="actions">${isNew ? '' : '<button type="button" class="btn danger" id="tdel">Excluir</button>'}<button type="button" class="btn grow" id="tcancel">Cancelar</button><button type="submit" class="btn primary grow">${isNew ? 'Criar tarefa' : 'Salvar'}</button></div>
     </form>`);
     const form = el.querySelector('#tf');
     const renderSubs = () => {
@@ -2468,7 +2471,7 @@ Platform.register({
       prio = b.dataset.p; el.querySelectorAll('#tp [data-p]').forEach(x => x.setAttribute('aria-checked', x === b));
     });
     el.querySelector('#tcancel').onclick = () => Sheet.close();
-    el.querySelector('#tdel').onclick = async () => {
+    if (!isNew) el.querySelector('#tdel').onclick = async () => {
       if (!(await confirmSheet('Excluir esta tarefa?', `“${t.title}” será removida deste aparelho e da nuvem.`))) return;
       await Tasks.remove(t.id); toast('Tarefa excluída'); Sync.soon(); this.render();
     };
@@ -2480,7 +2483,7 @@ Platform.register({
       if (form.dueTime.value && !dueDate) { el.querySelector('#terr').textContent = 'Para usar horário, escolha também uma data.'; return; }
       await Tasks.save({ ...t, title, notes: form.notes.value.trim(), dueDate, dueTime: dueDate ? form.dueTime.value : '',
         priority: Number(prio), list: form.list.value.trim(), subtasks: subs.filter(s => s.text.trim()).map(s => ({ ...s, text: s.text.trim() })) });
-      Sheet.close(); toast('Tarefa salva'); Sync.soon(); this.render();
+      Sheet.close(); toast(isNew ? 'Tarefa criada' : 'Tarefa salva'); Sync.soon(); this.render();
     });
   }
 });
