@@ -282,6 +282,18 @@ a.row-item{cursor:pointer}
 .att-audio{display:block;width:240px;max-width:100%}
 .viewer-img{display:block;max-width:100%;max-height:60vh;margin:0 auto 14px;border-radius:12px}
 
+/* Imagem em tela cheia */
+.fviewer{position:fixed;inset:0;z-index:40;background:#000;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);animation:fvIn .18s ease-out}
+@keyframes fvIn{from{opacity:0}to{opacity:1}}
+.fv-bar{display:flex;align-items:center;gap:10px;padding:8px 10px;color:#fff}
+.fv-name{flex:1;min-width:0;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.85}
+.fv-btn{flex:none;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:1.15rem;display:grid;place-items:center;cursor:pointer}
+.fv-btn svg{width:22px;height:22px}
+.fv-stage{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center}
+.fv-stage.zoomed{display:block}
+.fv-stage img.fit{max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in}
+.fv-stage img.full{display:block;max-width:none;max-height:none;margin:auto;cursor:zoom-out}
+
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -589,6 +601,7 @@ const CONFIG = {
   // NUNCA coloque aqui a chave secreta (sb_secret_...).
   SUPABASE_KEY: 'sb_publishable_i-h-YWU1o1aPMGc3n92TNw_UHJbUSdt'
 };
+const APP_VERSION = '3.2';                     // mostre esta versão em Status para conferir se o celular atualizou
 const appUrl = () => location.origin + location.pathname;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const iso = s => new Date(s).toISOString();
@@ -978,16 +991,20 @@ const Sync = {
   async syncMessages() {
     const me = Identity.profile, api = CloudServer;
     // 0. aparelho novo: baixa o histórico recente uma vez
-    if (!(await Settings.get('msgBackfilled'))) {
+    if ((await Settings.get('msgBackfilled')) !== 2) {
       for (const r of await api.history()) {
-        if (await DB.get('messages', r.id)) continue;
+        const local = await DB.get('messages', r.id);
+        if (local) {                                    // versão antiga salvou sem o anexo: completa agora
+          if (r.attachment && !local.attachment) await DB.put('messages', { ...local, attachment: { ...r.attachment, uploaded: true } });
+          continue;
+        }
         const mine = r.sender_id === me.userId;
         await DB.put('messages', { id: r.id, peer: mine ? r.recipient_id : r.sender_id, from: r.sender_id, to: r.recipient_id, body: r.body,
           attachment: r.attachment ? { ...r.attachment, uploaded: true } : null,
           createdAt: iso(r.created_at), channel: 'online', readSynced: true,
           status: mine ? (r.read_at ? 'read' : r.delivered_at ? 'delivered' : 'sent') : (r.read_at ? 'read' : 'received') });
       }
-      await Settings.set('msgBackfilled', true);
+      await Settings.set('msgBackfilled', 2);
     }
     // 1. envia pendentes (inclui as que ficaram "enviando" se o app fechou no meio)
     const out = (await DB.all('messages')).filter(m => m.from === me.userId && (m.status === 'pending' || m.status === 'sending'))
@@ -1284,6 +1301,42 @@ const ProfileScreen = {
 /* 7.11b Anexos (fotos, vídeos, áudios e documentos) ------- */
 const MAX_FILE = 25 * 1048576;                 // igual ao limite da pasta no Supabase
 ICON.clip = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"/></svg>';
+ICON.download = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
+const Viewer = {
+  el: null,
+  open(url, name) {
+    this.remove();
+    const el = document.createElement('div');
+    el.className = 'fviewer'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', name || 'Imagem');
+    el.innerHTML = `<div class="fv-bar"><button class="fv-btn" data-fv="close" aria-label="Fechar">✕</button><span class="fv-name">${esc(name || '')}</span><button class="fv-btn" data-fv="save" aria-label="Baixar imagem">${ICON.download}</button></div>
+      <div class="fv-stage"><img class="fit" src="${url}" alt="${esc(name || '')}"></div>`;
+    document.body.appendChild(el);
+    document.body.style.overflow = 'hidden';
+    history.pushState({ fviewer: true }, '');          // botão Voltar do Android fecha a imagem
+    this.el = el;
+    const stage = el.querySelector('.fv-stage');
+    el.addEventListener('click', e => {
+      const b = e.target.closest('[data-fv]');
+      if (b) { if (b.dataset.fv === 'save') saveFile(url, name); else this.close(); return; }
+      if (e.target.tagName === 'IMG') {                 // toque na imagem: aproxima / afasta
+        const img = e.target;
+        if (img.classList.contains('fit')) {
+          const rx = e.offsetX / img.clientWidth, ry = e.offsetY / img.clientHeight;
+          img.className = 'full'; stage.classList.add('zoomed');
+          stage.scrollLeft = rx * img.naturalWidth - stage.clientWidth / 2;
+          stage.scrollTop = ry * img.naturalHeight - stage.clientHeight / 2;
+        } else { img.className = 'fit'; stage.classList.remove('zoomed'); }
+        return;
+      }
+      if (e.target === stage) this.close();              // toque fora da imagem fecha
+    });
+    el.querySelector('[data-fv=close]').focus();
+  },
+  close() { if (this.el) history.back(); },
+  remove() { if (this.el) { this.el.remove(); this.el = null; document.body.style.overflow = ''; } }
+};
+window.addEventListener('popstate', () => Viewer.remove());
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && Viewer.el) Viewer.close(); });
 const kindOf = t => /^image\/(jpeg|png|webp|gif)$/.test(t || '') ? 'image' : /^video\//.test(t || '') ? 'video' : /^audio\//.test(t || '') ? 'audio' : 'file';
 function msgPreview(m) {
   if (!m.attachment) return m.body;
@@ -1490,6 +1543,9 @@ Platform.register({
       try {
         const blob = await CloudServer.download(m.attachment.path);
         await DB.put('files', { id: m.id, blob, type: m.attachment.type, name: m.attachment.name });
+        if (!quiet && kindOf(m.attachment.type) === 'file') {   // documento: baixou, já salva no aparelho
+          await ensureUrl(m); saveFile(urls.get(m.id), m.attachment.name); toast('Arquivo salvo em Downloads');
+        }
       } catch (e) { failedDl.add(m.id); if (!quiet) toast(mapErr(e).message); }
       loading.delete(m.id); render();
     };
@@ -1528,13 +1584,7 @@ Platform.register({
             && !urls.has(m.id) && !loading.has(m.id) && !failedDl.has(m.id)) fetchFile(m, true);
     };
 
-    const viewImage = m => {
-      const url = urls.get(m.id); if (!url) return;
-      const el = Sheet.open(`<img class="viewer-img" src="${url}" alt="${esc(m.attachment.name)}">
-        <div class="actions"><button class="btn grow" id="vsave">Salvar</button><button class="btn primary grow" id="vclose" autofocus>Fechar</button></div>`);
-      el.querySelector('#vsave').onclick = () => saveFile(url, m.attachment.name);
-      el.querySelector('#vclose').onclick = () => Sheet.close();
-    };
+    const viewImage = m => { const url = urls.get(m.id); if (url) Viewer.open(url, m.attachment.name); };
     const pickFiles = files => {
       const list = [...files]; if (!list.length || !contact) return;
       const big = list.find(f => f.size > MAX_FILE);
@@ -2009,7 +2059,8 @@ const Status = {
       <section class="panel"><h2>Conta e servidor</h2>
         <dl class="kv"><dt>Conta</dt><dd style="overflow-wrap:anywhere">${Cloud.user ? esc(Cloud.user.email) : 'Não conectada'}</dd>
           <dt>Servidor</dt><dd>${Cloud.sb ? 'Supabase' : 'Indisponível'}</dd>
-          <dt>Tempo real</dt><dd>${Realtime.live ? 'Ativo' : 'Inativo'}</dd></dl>
+          <dt>Tempo real</dt><dd>${Realtime.live ? 'Ativo' : 'Inativo'}</dd>
+          <dt>Versão do app</dt><dd>${APP_VERSION}</dd></dl>
         <a class="btn" href="#/conta" style="display:flex;align-items:center;justify-content:center;text-decoration:none;color:var(--ink);margin-top:8px">${Cloud.user ? 'Ver conta' : 'Entrar ou criar conta'}</a>
         ${Sync.lastError ? `<p class="err" style="margin-top:10px">Última sincronização falhou: ${esc(Sync.lastError)}</p>` : ''}
       </section>
@@ -2065,7 +2116,10 @@ const Status = {
   route();
   Sync.start();
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    navigator.serviceWorker.register('./sw.js').catch(e => console.error('Service worker:', e));
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('./sw.js').then(r => r.update()).catch(e => console.error('Service worker:', e));
+    let reloaded = false;                       // versão nova instalada: recarrega uma vez sozinho
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
     navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'open') location.hash = e.data.url; });
   }
 })();
