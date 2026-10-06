@@ -1,7 +1,7 @@
 // Núcleo — service worker
 // Guarda o app para abrir sem internet e trata o toque nas notificações.
 // Ao publicar uma versão nova, troque o número abaixo para forçar a atualização.
-const CACHE = 'nucleo-v3';
+const CACHE = 'nucleo-v4';
 const SHELL = ['./', './index.html'];
 
 self.addEventListener('install', e => {
@@ -25,7 +25,7 @@ self.addEventListener('fetch', e => {
   // Página do app: tenta a rede (versão nova) e cai no cache sem internet
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).then(r => {
+      fetch(req.url, { cache: 'no-store' }).then(r => {          // sempre a versão mais nova do GitHub
         const copy = r.clone();
         caches.open(CACHE).then(c => c.put('./index.html', copy));
         return r;
