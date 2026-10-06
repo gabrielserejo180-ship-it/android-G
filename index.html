@@ -17,7 +17,7 @@
 :root{
   --bg:#E8EDF1; --surface:#FFFFFF; --surface-2:#F1F4F7; --ink:#17222E; --ink-2:#5A6878; --line:#D3DCE4;
   --primary:#2F5BD3; --on-primary:#FFFFFF; --danger:#C2334D;
-  --c-msg:#13897D; --c-notes:#C98A12; --c-calc:#3E4A5A; --c-cal:#C4385E;
+  --c-msg:#13897D; --c-notes:#C98A12; --c-calc:#3E4A5A; --c-cal:#C4385E; --c-files:#6B4FC4;
   --shadow:0 1px 2px rgba(23,34,46,.06), 0 6px 18px rgba(23,34,46,.07);
   --font:"Sora", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme:light;
@@ -29,7 +29,7 @@
   :root:not([data-theme="light"]){
     --bg:#0E151D; --surface:#17212C; --surface-2:#1F2B38; --ink:#E6ECF2; --ink-2:#93A1B0; --line:#2A3847;
     --primary:#7397FF; --on-primary:#0E151D; --danger:#FF6F86;
-    --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F;
+    --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F; --c-files:#9C84F0;
     --shadow:0 1px 2px rgba(0,0,0,.3);
     color-scheme:dark;
   }
@@ -37,7 +37,7 @@
 :root[data-theme="dark"]{
   --bg:#0E151D; --surface:#17212C; --surface-2:#1F2B38; --ink:#E6ECF2; --ink-2:#93A1B0; --line:#2A3847;
   --primary:#7397FF; --on-primary:#0E151D; --danger:#FF6F86;
-  --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F;
+  --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F; --c-files:#9C84F0;
   --shadow:0 1px 2px rgba(0,0,0,.3);
   color-scheme:dark;
 }
@@ -282,6 +282,17 @@ a.row-item{cursor:pointer}
 .att-audio{display:block;width:240px;max-width:100%}
 .viewer-img{display:block;max-width:100%;max-height:60vh;margin:0 auto 14px;border-radius:12px}
 
+/* Módulo Arquivos */
+.frow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.fthumb{flex:none;width:54px;height:54px;border-radius:14px;border:0;padding:0;background:var(--surface);display:grid;place-items:center;font-size:1.5rem;overflow:hidden;cursor:pointer}
+.fthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.finfo{flex:1;min-width:0;border:0;background:none;padding:4px 0;text-align:left;cursor:pointer;color:var(--ink)}
+.finfo b{display:block;font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.finfo small{display:block;color:var(--ink-2);font-size:.78rem;margin-top:2px;line-height:1.35}
+.sheet-menu{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.sheet-menu .btn{width:100%;text-align:left}
+.sim-banner a{color:var(--primary)}
+
 /* Imagem em tela cheia */
 .fviewer{position:fixed;inset:0;z-index:40;background:#000;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);animation:fvIn .18s ease-out}
 @keyframes fvIn{from{opacity:0}to{opacity:1}}
@@ -359,9 +370,9 @@ const tag = k => `<span class="tag ${TAGS[k][0]}">${TAGS[k][1]}</span>`;
    (plugin Capacitor) sem mudar os módulos.
    ========================================================= */
 const DB = (() => {
-  const NAME = 'nucleo', VERSION = 3;
+  const NAME = 'nucleo', VERSION = 4;
   const KEYS = { notes: 'id', events: 'id', calcHistory: 'id', settings: 'key', outbox: 'id',
-                 contacts: 'id', requests: 'id', messages: 'id', sim_users: 'id', sim_requests: 'id', sim_messages: 'id', files: 'id' };
+                 contacts: 'id', requests: 'id', messages: 'id', sim_users: 'id', sim_requests: 'id', sim_messages: 'id', files: 'id', user_files: 'id' };
   let idb = null, mem = null, engine = 'none';
   const p = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
   const useMemory = () => { mem = {}; for (const k in KEYS) mem[k] = new Map(); engine = 'memory'; };
@@ -387,6 +398,7 @@ const DB = (() => {
             d.createObjectStore('sim_messages', { keyPath: 'id' });
           }
           if (old < 3) d.createObjectStore('files', { keyPath: 'id' });   // anexos guardados no aparelho
+          if (old < 4) d.createObjectStore('user_files', { keyPath: 'id' }); // módulo Arquivos
         };
         req.onsuccess = () => { idb = req.result; idb.onversionchange = () => idb.close(); engine = 'indexeddb'; res(engine); };
         req.onerror = () => { useMemory(); res(engine); };
@@ -544,7 +556,7 @@ async function route() {
 /* =========================================================
    6. TELA INICIAL
    ========================================================= */
-const FUTURE_MODULES = [['👥', 'Contatos'], ['📁', 'Arquivos'], ['🖼️', 'Galeria'], ['📷', 'Câmera'], ['🎙️', 'Gravador'], ['✅', 'Tarefas']];
+const FUTURE_MODULES = [['👥', 'Contatos'], ['🖼️', 'Galeria'], ['📷', 'Câmera'], ['🎙️', 'Gravador'], ['✅', 'Tarefas']];
 const Home = {
   id: 'home', name: 'Início', timer: null,
   async mount(view) {
@@ -601,7 +613,7 @@ const CONFIG = {
   // NUNCA coloque aqui a chave secreta (sb_secret_...).
   SUPABASE_KEY: 'sb_publishable_i-h-YWU1o1aPMGc3n92TNw_UHJbUSdt'
 };
-const APP_VERSION = '3.2';                     // mostre esta versão em Status para conferir se o celular atualizou
+const APP_VERSION = '3.3';                     // mostre esta versão em Status para conferir se o celular atualizou
 const appUrl = () => location.origin + location.pathname;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const iso = s => new Date(s).toISOString();
@@ -758,17 +770,20 @@ const CloudServer = {
     return out.map(r => ({ id: r.id, deliveredAt: r.delivered_at, readAt: r.read_at }));
   },
   markRead(userId, peerId) { return Cloud.q(Cloud.sb.rpc('mark_read', { p_peer: peerId })); },
-  async upload(path, blob, type) {
+  async upload(path, blob, type, bucket = 'attachments') {
     let r;
-    try { r = await Cloud.sb.storage.from('attachments').upload(path, blob, { contentType: type || 'application/octet-stream', upsert: false }); }
+    try { r = await Cloud.sb.storage.from(bucket).upload(path, blob, { contentType: type || 'application/octet-stream', upsert: false }); }
     catch (e) { throw mapErr(e); }
     if (r.error && !/exist|duplicate|409/i.test(String(r.error.message) + ' ' + (r.error.statusCode || ''))) throw mapErr(r.error);   // já enviado antes = ok
   },
-  async download(path) {
+  async download(path, bucket = 'attachments') {
     let r;
-    try { r = await Cloud.sb.storage.from('attachments').download(path); } catch (e) { throw mapErr(e); }
+    try { r = await Cloud.sb.storage.from(bucket).download(path); } catch (e) { throw mapErr(e); }
     if (r.error) throw mapErr(r.error);
     return r.data;
+  },
+  async remove(path, bucket) {
+    try { await Cloud.sb.storage.from(bucket).remove([path]); } catch (e) { console.warn(e); }
   },
   history() {
     return Cloud.q(Cloud.sb.from('messages').select('id,sender_id,recipient_id,body,created_at,delivered_at,read_at,attachment')
@@ -814,6 +829,7 @@ const Realtime = {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_requests' }, go)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notes', filter: 'user_id=eq.' + uid }, go)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: 'user_id=eq.' + uid }, go)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_files', filter: 'user_id=eq.' + uid }, go)
       .subscribe(status => { this.live = status === 'SUBSCRIBED'; Bus.emit('conn'); });
   },
   stop() { if (this.ch && Cloud.sb) Cloud.sb.removeChannel(this.ch); this.ch = null; this.live = false; }
@@ -868,8 +884,8 @@ const Identity = {
 
 /* 7.8 Conta: entrar, sair, trocar de conta ----------------- */
 async function wipeUserData() {
-  for (const n of ['notes', 'events', 'outbox', 'contacts', 'requests', 'messages', 'files']) await DB.clear(n);
-  for (const k of ['profile', 'cloudUserId', 'pull:notes', 'pull:events', 'msgBackfilled']) await DB.del('settings', k);
+  for (const n of ['notes', 'events', 'user_files', 'outbox', 'contacts', 'requests', 'messages', 'files']) await DB.clear(n);
+  for (const k of ['profile', 'cloudUserId', 'pull:notes', 'pull:events', 'pull:user_files', 'msgBackfilled']) await DB.del('settings', k);
   Identity.profile = null;
 }
 const Account = {
@@ -878,10 +894,11 @@ const Account = {
       const prev = await Settings.get('cloudUserId');
       if (prev !== user.id) {
         if (prev) await wipeUserData();               // outra conta usou este aparelho
-        for (const n of ['contacts', 'requests', 'messages', 'files', 'sim_users', 'sim_requests', 'sim_messages']) await DB.clear(n);
-        for (const k of ['pull:notes', 'pull:events', 'msgBackfilled']) await DB.del('settings', k);
+        for (const r of await DB.all('messages')) await DB.del('files', r.id);   // anexos de outra conta (arquivos pessoais ficam)
+        for (const n of ['contacts', 'requests', 'messages', 'sim_users', 'sim_requests', 'sim_messages']) await DB.clear(n);
+        for (const k of ['pull:notes', 'pull:events', 'pull:user_files', 'msgBackfilled']) await DB.del('settings', k);
         // notas e eventos criados antes de entrar passam a ser desta conta
-        for (const s of ['notes', 'events']) for (const r of await DB.all(s)) await Outbox.enqueue(s, r.id, r.deleted ? 'delete' : 'upsert');
+        for (const s of ['notes', 'events', 'user_files']) for (const r of await DB.all(s)) await Outbox.enqueue(s, r.id, r.deleted ? 'delete' : 'upsert');
         await Settings.set('cloudUserId', user.id);
       }
       await Identity.fromCloud(user);
@@ -910,15 +927,18 @@ const Account = {
 const RANK = { pending: 0, failed: 0, sending: 1, sent: 2, delivered: 3, read: 4 };
 const NOTE_FIELDS = ['title', 'body', 'category', 'favorite'];
 const EVENT_FIELDS = ['title', 'description', 'date', 'time', 'reminder'];
+const FILE_FIELDS = ['name', 'size', 'type', 'path'];
 function toRow(table, r) {
   const row = { id: r.id, created_at: r.createdAt, updated_at: r.updatedAt, version: r.version || 1, device_id: r.deviceId || null, deleted: !!r.deleted };
   if (table === 'notes') { row.title = r.title || ''; row.body = r.body || ''; row.category = r.category || ''; row.favorite = !!r.favorite; }
+  else if (table === 'user_files') { row.name = r.name || 'arquivo'; row.size = r.size || 0; row.type = r.type || ''; row.path = r.path; }
   else { row.title = r.title || 'Sem título'; row.description = r.description || ''; row.date = r.date; row.time = r.time || ''; row.reminder = String(r.reminder ?? ''); }
   return row;
 }
 function fromRow(table, row) {
   const r = { id: row.id, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at), version: row.version, deviceId: row.device_id, deleted: !!row.deleted, syncStatus: 'synced' };
-  for (const f of (table === 'notes' ? NOTE_FIELDS : EVENT_FIELDS)) r[f] = row[f];
+  for (const f of (table === 'notes' ? NOTE_FIELDS : table === 'user_files' ? FILE_FIELDS : EVENT_FIELDS)) r[f] = row[f];
+  if (table === 'user_files') r.uploaded = true;
   return r;
 }
 const Sync = {
@@ -944,6 +964,8 @@ const Sync = {
       changed = (await this.pushRecords()) || changed;
       changed = (await this.pullRecords('notes')) || changed;
       changed = (await this.pullRecords('events')) || changed;
+      try { changed = (await this.pullRecords('user_files')) || changed; this.filesReady = true; }
+      catch (e) { if (mapErr(e).code === 'SCHEMA') this.filesReady = false; else throw e; }   // SQL de arquivos ainda não rodado
       if (Identity.profile) { await this.ensureRegistered(); await this.syncMessages(); }
       this.lastError = null; this.lastSync = now();
     } catch (e) {
@@ -956,21 +978,40 @@ const Sync = {
       if (this.again) { this.again = false; this.soon(); }
     }
   },
-  // Envia notas/eventos alterados (fila "outbox")
+  // Envia notas, eventos e arquivos alterados (fila "outbox")
   async pushRecords() {
     let changed = false;
     for (const o of await DB.all('outbox')) {
-      if (o.entity !== 'notes' && o.entity !== 'events') continue;
-      const rec = await DB.get(o.entity, o.entityId);
+      if (!['notes', 'events', 'user_files'].includes(o.entity)) continue;
+      let rec = await DB.get(o.entity, o.entityId);
       if (!rec || !UUID_RE.test(rec.id)) { await DB.del('outbox', o.id); continue; }
-      try { await Cloud.q(Cloud.sb.from(o.entity).upsert(toRow(o.entity, rec), { onConflict: 'id' })); }
-      catch (e) { if (e.code === 'NETWORK' || e.code === 'AUTH' || e.code === 'SCHEMA') throw e; console.error(e); continue; }
+      try {
+        if (o.entity === 'user_files') { rec = await this.prepareFile(rec, o); if (!rec) continue; }
+        await Cloud.q(Cloud.sb.from(o.entity).upsert(toRow(o.entity, rec), { onConflict: 'id' }));
+      } catch (e) {
+        if (o.entity === 'user_files' && e.code === 'SCHEMA') { this.filesReady = false; continue; }
+        if (e.code === 'NETWORK' || e.code === 'AUTH' || e.code === 'SCHEMA') throw e;
+        console.error(e); continue;
+      }
       const cur = await DB.get(o.entity, rec.id);
       if (cur && cur.updatedAt === rec.updatedAt) { await DB.put(o.entity, { ...cur, syncStatus: 'synced' }); changed = true; }
       const ob = await DB.get('outbox', o.id);
       if (ob && ob.queuedAt === o.queuedAt) await DB.del('outbox', o.id);   // não apaga uma edição mais nova
     }
     return changed;
+  },
+  // Arquivo: primeiro sobe o conteúdo para a pasta da nuvem, depois a ficha na tabela
+  async prepareFile(rec, o) {
+    const mine = Cloud.user.id + '/';
+    if (!rec.path || !rec.path.startsWith(mine)) { rec = { ...rec, path: `${mine}${rec.id}/${safeName(rec.name)}` }; await DB.put('user_files', rec); }
+    if (rec.deleted) { if (rec.uploaded) await CloudServer.remove(rec.path, 'user-files'); return rec; }
+    if (!rec.uploaded) {
+      const f = await DB.get('files', rec.id);
+      if (!f) { await DB.del('outbox', o.id); return null; }        // conteúdo sumiu deste aparelho
+      await CloudServer.upload(rec.path, f.blob, rec.type, 'user-files');
+      rec = { ...rec, uploaded: true }; await DB.put('user_files', rec);
+    }
+    return rec;
   },
   // Baixa o que mudou na nuvem desde a última vez (a versão mais recente vence)
   async pullRecords(table) {
@@ -980,7 +1021,10 @@ const Sync = {
       const rows = await Cloud.q(Cloud.sb.from(table).select('*').gt('server_updated_at', since).order('server_updated_at').limit(200));
       for (const row of rows) {
         const remote = fromRow(table, row), local = await DB.get(table, row.id);
-        if (!local || Date.parse(remote.updatedAt) > Date.parse(local.updatedAt)) { await DB.put(table, remote); changed = true; }
+        if (!local || Date.parse(remote.updatedAt) > Date.parse(local.updatedAt)) {
+          await DB.put(table, remote); changed = true;
+          if (table === 'user_files' && remote.deleted) await DB.del('files', remote.id);   // apagado em outro aparelho
+        }
         since = row.server_updated_at;
       }
       await Settings.set(key, since);
@@ -1337,6 +1381,7 @@ const Viewer = {
 };
 window.addEventListener('popstate', () => Viewer.remove());
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && Viewer.el) Viewer.close(); });
+const safeName = n => String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_').slice(-80) || 'arquivo';
 const kindOf = t => /^image\/(jpeg|png|webp|gif)$/.test(t || '') ? 'image' : /^video\//.test(t || '') ? 'video' : /^audio\//.test(t || '') ? 'audio' : 'file';
 function msgPreview(m) {
   if (!m.attachment) return m.body;
@@ -2008,6 +2053,191 @@ Platform.register({
 });
 
 /* =========================================================
+   10b. MÓDULO ARQUIVOS — meus arquivos (nuvem) + das conversas
+   ========================================================= */
+const Drive = Repository('user_files');
+const FILE_FILTERS = [['all', 'Todos'], ['image', 'Fotos'], ['video', 'Vídeos'], ['audio', 'Áudios'], ['file', 'Documentos']];
+const KIND_ICON = { image: '🖼️', video: '🎬', audio: '🎵', file: '📄' };
+Platform.register({
+  id: 'files', name: 'Arquivos', icon: '📁', colorVar: '--c-files',
+  state: { tab: 'meus', q: '', filter: 'all' }, off: [], urls: new Map(), loading: new Set(), failed: new Set(), items: [],
+  unmount() {
+    this.off.forEach(f => f()); this.off = [];
+    this.urls.forEach(u => URL.revokeObjectURL(u)); this.urls.clear(); this.loading.clear(); this.failed.clear();
+  },
+  async mount(view) {
+    view.innerHTML = `<div id="fm">
+      <nav class="tabs" aria-label="Seções"><a href="#" data-tab="meus">Meus arquivos</a><a href="#" data-tab="conversas">Das conversas</a></nav>
+      <div class="pad" style="padding-top:0">
+        <input class="search" type="search" id="fq" placeholder="Pesquisar arquivos" aria-label="Pesquisar arquivos" value="${esc(this.state.q)}">
+        <div class="chips" id="fchips" role="toolbar" aria-label="Filtrar por tipo"></div>
+        <div id="fsum"></div>
+        <div id="flist"></div>
+      </div>
+      <input type="file" id="fadd" multiple hidden>
+      <div class="fab-wrap" id="ffab"><button class="fab" id="faddBtn" style="--fab:var(--c-files)">+ Adicionar arquivo</button></div>
+    </div>`;
+    const root = $('#fm');
+    root.addEventListener('click', e => {
+      const t = e.target.closest('[data-tab]');
+      if (t) { e.preventDefault(); this.state.tab = t.dataset.tab; this.render(); return; }
+      const c = e.target.closest('[data-f]');
+      if (c) { this.state.filter = c.dataset.f; this.render(); return; }
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      const it = this.items.find(x => x.key === b.closest('[data-k]').dataset.k); if (!it) return;
+      if (b.dataset.act === 'open') this.open(it); else this.more(it);
+    });
+    $('#fq').addEventListener('input', e => { this.state.q = e.target.value; this.render(); });
+    $('#faddBtn').onclick = () => $('#fadd').click();
+    $('#fadd').onchange = async e => { await this.add([...e.target.files]); e.target.value = ''; };
+    this.off.push(Bus.on('sync', () => this.render()), Bus.on('data', () => this.render()));
+    await this.render();
+  },
+
+  async collect() {
+    if (this.state.tab === 'meus') {
+      return (await Drive.list()).map(r => ({ key: r.id, src: 'drive', rec: r, name: r.name, size: r.size, type: r.type, date: r.createdAt,
+        path: r.path, bucket: 'user-files', uploaded: !!r.uploaded }));
+    }
+    if (!Identity.profile) return [];
+    const me = Identity.profile.userId;
+    const names = new Map((await DB.all('contacts')).map(c => [c.id, c.name]));
+    return (await DB.all('messages')).filter(m => m.attachment).map(m => ({ key: m.id, src: 'msg', msg: m, name: m.attachment.name,
+      size: m.attachment.size, type: m.attachment.type, date: m.createdAt, path: m.attachment.path, bucket: 'attachments',
+      mine: m.from === me, who: names.get(m.peer) || 'Ex-contato', peer: m.peer, uploaded: true }));
+  },
+
+  async render() {
+    const root = $('#fm'); if (!root) return;
+    const { tab, filter } = this.state, q = norm(this.state.q);
+    root.querySelectorAll('[data-tab]').forEach(a => a.setAttribute('aria-current', a.dataset.tab === tab ? 'page' : 'false'));
+    $('#fchips').innerHTML = FILE_FILTERS.map(([k, l]) => `<button class="chip" data-f="${k}" aria-pressed="${filter === k}">${l}</button>`).join('');
+    $('#ffab').hidden = tab !== 'meus';
+    const all = (await this.collect()).sort((a, b) => b.date.localeCompare(a.date));
+    const list = all.filter(it => (filter === 'all' || kindOf(it.type) === filter) && (!q || norm(it.name + ' ' + (it.who || '')).includes(q)));
+    this.items = list;
+    for (const it of list) if (kindOf(it.type) === 'image') await this.ensureUrl(it);
+
+    const total = all.reduce((s, it) => s + (it.size || 0), 0);
+    let note = '';
+    if (tab === 'meus' && !Cloud.user) note = 'Os arquivos ficam só neste aparelho. <a href="#/conta">Entre na conta</a> para guardar na nuvem e abrir em outros aparelhos.';
+    else if (tab === 'meus' && Sync.filesReady === false) note = 'A nuvem de arquivos ainda não foi criada: rode o SQL de arquivos no Supabase. Por enquanto eles ficam só neste aparelho.';
+    else if (tab === 'conversas' && !Cloud.user) note = '<a href="#/conta">Entre na conta</a> para ver os arquivos das suas conversas.';
+    $('#fsum').innerHTML = `<p class="muted small" style="margin:0 0 6px">${all.length} arquivo${all.length === 1 ? '' : 's'}, ${fmtBytes(total)}</p>${note ? `<p class="sim-banner">${note}</p>` : ''}`;
+
+    if (!$('#flist')) return;
+    $('#flist').innerHTML = list.length ? list.map(it => {
+      const k = kindOf(it.type), url = this.urls.get(it.key);
+      const thumb = url && k === 'image' ? `<img src="${url}" alt="">` : KIND_ICON[k];
+      let extra = '';
+      if (it.src === 'drive') extra = !Cloud.user ? ', só neste aparelho' : it.rec.syncStatus === 'synced' && it.uploaded ? ', na nuvem ☁️' : ', aguardando envio 🕓';
+      else extra = it.mine ? `, enviado para ${esc(it.who)}` : `, recebido de ${esc(it.who)}`;
+      if (this.loading.has(it.key)) extra += ', baixando…';
+      return `<div class="frow" data-k="${esc(it.key)}">
+        <button class="fthumb" data-act="open" aria-label="Abrir ${esc(it.name)}">${thumb}</button>
+        <button class="finfo" data-act="open"><b>${esc(it.name)}</b><small>${fmtBytes(it.size)}, ${shortTime(it.date)}${extra}</small></button>
+        <button class="icon-btn" data-act="more" aria-label="Mais opções para ${esc(it.name)}">⋯</button></div>`;
+    }).join('') : all.length
+      ? '<div class="empty"><p>Nenhum arquivo encontrado.</p><p>Tente outra palavra ou volte para “Todos”.</p></div>'
+      : tab === 'meus'
+        ? '<div class="empty"><p>Nenhum arquivo ainda.</p><p>Toque em “Adicionar arquivo” para guardar fotos, vídeos, áudios ou documentos.</p></div>'
+        : '<div class="empty"><p>Nenhum arquivo nas conversas.</p><p>Fotos e documentos trocados em Mensagens aparecem aqui.</p></div>';
+
+    // miniaturas de fotos pequenas baixam sozinhas
+    for (const it of list)
+      if (kindOf(it.type) === 'image' && it.size <= 1.5 * 1048576 && it.uploaded && !this.urls.has(it.key) && !this.loading.has(it.key) && !this.failed.has(it.key))
+        this.fetch(it, true);
+  },
+
+  async ensureUrl(it) {
+    if (this.urls.has(it.key)) return true;
+    const f = await DB.get('files', it.key);
+    if (f && f.blob) { this.urls.set(it.key, URL.createObjectURL(f.blob)); return true; }
+    return false;
+  },
+  async fetch(it, quiet) {
+    if (await this.ensureUrl(it)) return true;
+    if (this.loading.has(it.key)) return false;
+    if (!it.uploaded) { if (!quiet) toast('Esse arquivo ainda não chegou à nuvem.'); return false; }
+    if (!Cloud.user || !Connection.internet()) { if (!quiet) toast('Sem internet para baixar o arquivo.'); return false; }
+    this.loading.add(it.key); if (!quiet) this.render();
+    try {
+      const blob = await CloudServer.download(it.path, it.bucket);
+      await DB.put('files', { id: it.key, blob, type: it.type, name: it.name });
+      await this.ensureUrl(it);
+      return true;
+    } catch (e) { this.failed.add(it.key); if (!quiet) toast(mapErr(e).message); return false; }
+    finally { this.loading.delete(it.key); this.render(); }
+  },
+  async open(it) {
+    if (!(await this.fetch(it))) return;
+    const url = this.urls.get(it.key), k = kindOf(it.type);
+    if (k === 'image') return Viewer.open(url, it.name);
+    if (k === 'video' || k === 'audio') {
+      const el = Sheet.open(`<h2 style="overflow-wrap:anywhere">${esc(it.name)}</h2>
+        ${k === 'video' ? `<video class="viewer-img" src="${url}" controls playsinline autoplay></video>` : `<audio src="${url}" controls autoplay style="width:100%;margin-bottom:14px"></audio>`}
+        <div class="actions"><button class="btn grow" id="msave">Salvar</button><button class="btn primary grow" id="mclose" autofocus>Fechar</button></div>`);
+      el.querySelector('#msave').onclick = () => saveFile(url, it.name);
+      el.querySelector('#mclose').onclick = () => Sheet.close();
+      return;
+    }
+    saveFile(url, it.name); toast('Arquivo salvo em Downloads');
+  },
+  more(it) {
+    const el = Sheet.open(`<h2 style="overflow-wrap:anywhere">${esc(it.name)}</h2>
+      <p class="muted small">${fmtBytes(it.size)}, ${fmtWhen(it.date)}</p>
+      <div class="sheet-menu">
+        <button class="btn" data-m="open">Abrir</button>
+        <button class="btn" data-m="save">Salvar no aparelho</button>
+        ${it.src === 'drive' ? '<button class="btn" data-m="rename">Renomear</button><button class="btn danger" data-m="delete">Excluir</button>' : '<button class="btn" data-m="chat">Ver a conversa</button>'}
+      </div>`);
+    el.querySelector('.sheet-menu').addEventListener('click', async e => {
+      const b = e.target.closest('[data-m]'); if (!b) return;
+      const m = b.dataset.m;
+      if (m === 'open') { Sheet.close(); this.open(it); }
+      else if (m === 'save') { Sheet.close(); if (await this.fetch(it)) { saveFile(this.urls.get(it.key), it.name); toast('Arquivo salvo em Downloads'); } }
+      else if (m === 'chat') { Sheet.close(); location.hash = '#/messages/chat/' + encodeURIComponent(it.peer); }
+      else if (m === 'rename') this.rename(it);
+      else if (m === 'delete') {
+        if (!(await confirmSheet('Excluir este arquivo?', `“${it.name}” será apagado deste aparelho e da nuvem.`))) return;
+        await Drive.remove(it.key); await DB.del('files', it.key);
+        const u = this.urls.get(it.key); if (u) { URL.revokeObjectURL(u); this.urls.delete(it.key); }
+        toast('Arquivo excluído'); Sync.soon(); this.render();
+      }
+    });
+  },
+  rename(it) {
+    const el = Sheet.open(`<form id="rnf" novalidate><h2>Renomear</h2>
+      <label class="field"><span>Nome do arquivo</span><input name="n" maxlength="200" value="${esc(it.name)}" autofocus></label>
+      <p class="err" id="rnerr" role="alert"></p>
+      <div class="actions"><button type="button" class="btn grow" id="rncancel">Cancelar</button><button class="btn primary grow" type="submit">Salvar</button></div></form>`);
+    const inp = el.querySelector('[name=n]');
+    setTimeout(() => { const dot = inp.value.lastIndexOf('.'); inp.setSelectionRange(0, dot > 0 ? dot : inp.value.length); }, 120);
+    el.querySelector('#rncancel').onclick = () => Sheet.close();
+    el.querySelector('#rnf').addEventListener('submit', async e => {
+      e.preventDefault();
+      const n = inp.value.trim().replace(/[\\/]/g, '-');
+      if (!n) { el.querySelector('#rnerr').textContent = 'Digite um nome.'; return; }
+      await Drive.save({ ...it.rec, name: n });
+      Sheet.close(); toast('Nome alterado'); Sync.soon(); this.render();
+    });
+  },
+  async add(files) {
+    if (!files.length) return;
+    let ok = 0;
+    for (const f of files) {
+      if (f.size > MAX_FILE) { toast(`“${f.name}” passa de ${fmtBytes(MAX_FILE)}.`); continue; }
+      const id = uid(), type = f.type || 'application/octet-stream', name = f.name || 'arquivo';
+      await DB.put('files', { id, blob: f, type, name });           // guardado no aparelho primeiro
+      await Drive.save({ id, name, size: f.size, type, path: '', uploaded: false });
+      ok++;
+    }
+    if (ok) { toast(ok === 1 ? 'Arquivo adicionado' : `${ok} arquivos adicionados`); Sync.soon(); }
+    this.render();
+  }
+});
+
+/* =========================================================
    11. STATUS DO SISTEMA — o que é real e o que falta
    ========================================================= */
 const FEATURES = [
@@ -2033,6 +2263,8 @@ const FEATURES = [
   ['Bloquear usuário', 'future'],
   ['Instalar novos módulos pelo botão +', 'future'],
   ['Fotos, vídeos, áudios e documentos nas mensagens (até 25 MB)', 'ok'],
+  ['Arquivos: guardar, abrir, renomear e excluir, com nuvem', 'ok'],
+  ['Arquivos das conversas reunidos num só lugar', 'ok'],
   ['Grupos e chamadas', 'future']
 ];
 const Status = {
