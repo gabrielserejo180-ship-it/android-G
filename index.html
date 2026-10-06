@@ -261,6 +261,27 @@ a.row-item{cursor:pointer}
 .inline-form{display:flex;gap:8px;margin-top:10px}
 .inline-form input{flex:1;min-width:0;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);padding:0 12px;font:inherit}
 
+/* Anexos */
+.attach{flex:none;width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);display:grid;place-items:center;cursor:pointer}
+.attach svg{width:22px;height:22px}
+.attach:disabled{opacity:.35;cursor:default}
+.bubble.has-att{padding:4px 4px 5px}
+.bubble.has-att .txt{display:block;padding:6px 8px 0}
+.bubble.has-att .st{padding:0 8px}
+.att-img{display:block;width:fit-content;border:0;padding:0;background:var(--surface-2);border-radius:14px;overflow:hidden;cursor:pointer;max-width:100%}
+.att-img img{display:block;max-width:240px;max-height:300px;width:auto;height:auto}
+@media (max-width:340px){.att-img img{max-width:200px}}
+.att-img.ph{width:210px;max-width:100%;height:150px;display:grid;place-items:center;align-content:center;gap:6px;font-size:1.8rem;color:var(--ink-2);white-space:normal}
+.att-img.ph small{font-size:.74rem;padding:0 10px;text-align:center}
+.att-file{display:flex;gap:10px;align-items:center;width:240px;max-width:100%;padding:10px;border:0;border-radius:14px;background:color-mix(in srgb,var(--ink) 7%,transparent);text-align:left;cursor:pointer;white-space:normal}
+.att-file .att-ic{flex:none;font-size:1.5rem}
+.att-file .info{min-width:0}
+.att-file b{display:block;font-size:.85rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att-file small{font-size:.72rem;color:var(--ink-2)}
+.att-video{display:block;max-width:min(260px,100%);border-radius:14px;background:#000}
+.att-audio{display:block;width:240px;max-width:100%}
+.viewer-img{display:block;max-width:100%;max-height:60vh;margin:0 auto 14px;border-radius:12px}
+
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -300,7 +321,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 const byTime = (a, b) => (a.time || '').localeCompare(b.time || '');
-const fmtBytes = n => n == null ? '—' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+const fmtBytes = n => n == null ? '—' : n < 1024 ? n + ' B' : n < 1048576 ? Math.round(n / 1024) + ' KB' : (n / 1048576).toFixed(1).replace('.', ',') + ' MB';
 function fmtWhen(iso) {
   const d = new Date(iso), t = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   const today = ymd(new Date()), y = new Date(); y.setDate(y.getDate() - 1);
@@ -326,9 +347,9 @@ const tag = k => `<span class="tag ${TAGS[k][0]}">${TAGS[k][1]}</span>`;
    (plugin Capacitor) sem mudar os módulos.
    ========================================================= */
 const DB = (() => {
-  const NAME = 'nucleo', VERSION = 2;
+  const NAME = 'nucleo', VERSION = 3;
   const KEYS = { notes: 'id', events: 'id', calcHistory: 'id', settings: 'key', outbox: 'id',
-                 contacts: 'id', requests: 'id', messages: 'id', sim_users: 'id', sim_requests: 'id', sim_messages: 'id' };
+                 contacts: 'id', requests: 'id', messages: 'id', sim_users: 'id', sim_requests: 'id', sim_messages: 'id', files: 'id' };
   let idb = null, mem = null, engine = 'none';
   const p = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
   const useMemory = () => { mem = {}; for (const k in KEYS) mem[k] = new Map(); engine = 'memory'; };
@@ -353,6 +374,7 @@ const DB = (() => {
             d.createObjectStore('sim_requests', { keyPath: 'id' });
             d.createObjectStore('sim_messages', { keyPath: 'id' });
           }
+          if (old < 3) d.createObjectStore('files', { keyPath: 'id' });   // anexos guardados no aparelho
         };
         req.onsuccess = () => { idb = req.result; idb.onversionchange = () => idb.close(); engine = 'indexeddb'; res(engine); };
         req.onerror = () => { useMemory(); res(engine); };
@@ -637,7 +659,9 @@ function mapErr(e) {
   if (e && e.code === '23505') return new BackendError('TAG_TAKEN', 'Esse identificador já está em uso.');
   if ((e && e.code === 'PGRST301') || /jwt/i.test(msg)) return new BackendError('AUTH', 'Sua sessão expirou. Entre novamente.');
   if ((e && e.code === '42501') || /row-level security/i.test(msg)) return new BackendError('DENIED', 'Ação não permitida.');
-  if (/does not exist|could not find the (table|function)|schema cache/i.test(msg)) return new BackendError('SCHEMA', 'O banco ainda não foi criado. Rode o script SQL no Supabase.');
+  if (/does not exist|could not find the (table|function)|schema cache/i.test(msg)) return new BackendError('SCHEMA', 'O banco está desatualizado. Rode no Supabase o script SQL mais recente.');
+  if (/bucket not found/i.test(msg)) return new BackendError('SCHEMA', 'A pasta de arquivos ainda não existe. Rode o SQL de arquivos no Supabase.');
+  if (/exceeded the maximum|too large|payload/i.test(msg)) return new BackendError('FILE_TOO_BIG', 'Arquivo grande demais para o servidor.');
   const k = Object.keys(ERR_TEXT).find(x => msg.includes(x));
   if (k) return new BackendError(k, ERR_TEXT[k]);
   return new BackendError('SERVER', msg || 'Erro no servidor.');
@@ -702,14 +726,16 @@ const CloudServer = {
   },
   async sendMessage(m) {
     let r;
-    try { r = await Cloud.sb.from('messages').insert({ id: m.id, sender_id: m.from, recipient_id: m.to, body: m.body, created_at: m.createdAt }); }
+    const row = { id: m.id, sender_id: m.from, recipient_id: m.to, body: m.body || '', created_at: m.createdAt };
+    if (m.attachment) row.attachment = { name: m.attachment.name, size: m.attachment.size, type: m.attachment.type, path: m.attachment.path };
+    try { r = await Cloud.sb.from('messages').insert(row); }
     catch (e) { throw mapErr(e); }
     if (r.error && r.error.code !== '23505') throw mapErr(r.error);   // 23505 = já estava guardada: não duplica
   },
   async incoming(userId) {
-    const d = await Cloud.q(Cloud.sb.from('messages').select('id,sender_id,recipient_id,body,created_at')
+    const d = await Cloud.q(Cloud.sb.from('messages').select('id,sender_id,recipient_id,body,created_at,attachment')
       .eq('recipient_id', userId).is('delivered_at', null).order('server_at').limit(500));
-    return d.map(m => ({ id: m.id, from: m.sender_id, to: m.recipient_id, body: m.body, createdAt: iso(m.created_at) }));
+    return d.map(m => ({ id: m.id, from: m.sender_id, to: m.recipient_id, body: m.body, attachment: m.attachment || null, createdAt: iso(m.created_at) }));
   },
   async ackDelivered(ids) { if (ids.length) await Cloud.q(Cloud.sb.rpc('mark_delivered', { p_ids: ids })); },
   async receipts(ids) {
@@ -719,8 +745,20 @@ const CloudServer = {
     return out.map(r => ({ id: r.id, deliveredAt: r.delivered_at, readAt: r.read_at }));
   },
   markRead(userId, peerId) { return Cloud.q(Cloud.sb.rpc('mark_read', { p_peer: peerId })); },
+  async upload(path, blob, type) {
+    let r;
+    try { r = await Cloud.sb.storage.from('attachments').upload(path, blob, { contentType: type || 'application/octet-stream', upsert: false }); }
+    catch (e) { throw mapErr(e); }
+    if (r.error && !/exist|duplicate|409/i.test(String(r.error.message) + ' ' + (r.error.statusCode || ''))) throw mapErr(r.error);   // já enviado antes = ok
+  },
+  async download(path) {
+    let r;
+    try { r = await Cloud.sb.storage.from('attachments').download(path); } catch (e) { throw mapErr(e); }
+    if (r.error) throw mapErr(r.error);
+    return r.data;
+  },
   history() {
-    return Cloud.q(Cloud.sb.from('messages').select('id,sender_id,recipient_id,body,created_at,delivered_at,read_at')
+    return Cloud.q(Cloud.sb.from('messages').select('id,sender_id,recipient_id,body,created_at,delivered_at,read_at,attachment')
       .order('server_at', { ascending: false }).limit(500));
   }
 };
@@ -783,7 +821,7 @@ const Notifier = {
     for (const [peer, ms] of byPeer) {
       if (!document.hidden && openPeer === peer) continue;
       reg.showNotification(names.get(peer) || 'Nova mensagem', {
-        body: ms.length > 1 ? `${ms.length} novas mensagens` : ms[ms.length - 1].body.slice(0, 140),
+        body: ms.length > 1 ? `${ms.length} novas mensagens` : msgPreview(ms[ms.length - 1]).slice(0, 140),
         tag: 'msg-' + peer, renotify: true, data: { url: '#/messages/chat/' + encodeURIComponent(peer) }
       });
     }
@@ -817,7 +855,7 @@ const Identity = {
 
 /* 7.8 Conta: entrar, sair, trocar de conta ----------------- */
 async function wipeUserData() {
-  for (const n of ['notes', 'events', 'outbox', 'contacts', 'requests', 'messages']) await DB.clear(n);
+  for (const n of ['notes', 'events', 'outbox', 'contacts', 'requests', 'messages', 'files']) await DB.clear(n);
   for (const k of ['profile', 'cloudUserId', 'pull:notes', 'pull:events', 'msgBackfilled']) await DB.del('settings', k);
   Identity.profile = null;
 }
@@ -827,7 +865,7 @@ const Account = {
       const prev = await Settings.get('cloudUserId');
       if (prev !== user.id) {
         if (prev) await wipeUserData();               // outra conta usou este aparelho
-        for (const n of ['contacts', 'requests', 'messages', 'sim_users', 'sim_requests', 'sim_messages']) await DB.clear(n);
+        for (const n of ['contacts', 'requests', 'messages', 'files', 'sim_users', 'sim_requests', 'sim_messages']) await DB.clear(n);
         for (const k of ['pull:notes', 'pull:events', 'msgBackfilled']) await DB.del('settings', k);
         // notas e eventos criados antes de entrar passam a ser desta conta
         for (const s of ['notes', 'events']) for (const r of await DB.all(s)) await Outbox.enqueue(s, r.id, r.deleted ? 'delete' : 'upsert');
@@ -945,6 +983,7 @@ const Sync = {
         if (await DB.get('messages', r.id)) continue;
         const mine = r.sender_id === me.userId;
         await DB.put('messages', { id: r.id, peer: mine ? r.recipient_id : r.sender_id, from: r.sender_id, to: r.recipient_id, body: r.body,
+          attachment: r.attachment ? { ...r.attachment, uploaded: true } : null,
           createdAt: iso(r.created_at), channel: 'online', readSynced: true,
           status: mine ? (r.read_at ? 'read' : r.delivered_at ? 'delivered' : 'sent') : (r.read_at ? 'read' : 'received') });
       }
@@ -955,7 +994,16 @@ const Sync = {
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     for (const m of out) {
       await DB.put('messages', { ...m, status: 'sending', channel: 'online' }); Bus.emit('messages');
-      try { await api.sendMessage(m); await DB.put('messages', { ...m, status: 'sent', channel: 'online', error: null }); }
+      try {
+        if (m.attachment && !m.attachment.uploaded) {           // 1º o arquivo, depois a mensagem
+          const f = await DB.get('files', m.id);
+          if (!f) throw new BackendError('NO_FILE', 'O arquivo não está mais neste aparelho.');
+          await api.upload(m.attachment.path, f.blob, m.attachment.type);
+          m.attachment = { ...m.attachment, uploaded: true };
+          await DB.put('messages', { ...m, status: 'sending', channel: 'online' });
+        }
+        await api.sendMessage(m); await DB.put('messages', { ...m, status: 'sent', channel: 'online', error: null });
+      }
       catch (e) {
         const x = mapErr(e);
         if (x.code === 'NETWORK' || x.code === 'AUTH' || x.code === 'SCHEMA') { await DB.put('messages', { ...m, status: 'pending' }); throw x; }
@@ -999,6 +1047,21 @@ const Messenger = {
   async send(peerId, body) {
     const me = Identity.profile;
     const m = { id: uid(), peer: peerId, from: me.userId, to: peerId, body, createdAt: now(), status: 'pending', channel: null };
+    await DB.put('messages', m); Bus.emit('messages'); Sync.soon(); return m;
+  },
+  async sendFile(peerId, file, caption) {
+    const me = Identity.profile;
+    if (file.size > MAX_FILE) throw new Error(`“${file.name}” passa de ${fmtBytes(MAX_FILE)}.`);
+    let blob = file, name = file.name || 'arquivo', type = file.type || 'application/octet-stream';
+    if (/^image\/(jpeg|png|webp)$/.test(type) && file.size > 350 * 1024) {
+      try { const small = await shrinkImage(file); if (small.size < file.size) { blob = small; type = 'image/jpeg'; name = name.replace(/\.[^.]+$/, '') + '.jpg'; } }
+      catch (e) { console.warn('Foto enviada sem reduzir', e); }
+    }
+    const id = uid();
+    const safe = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_').slice(-80) || 'arquivo';
+    await DB.put('files', { id, blob, type, name });                 // guarda no aparelho: funciona offline
+    const m = { id, peer: peerId, from: me.userId, to: peerId, body: String(caption || '').trim(), createdAt: now(), status: 'pending', channel: null,
+      attachment: { name, size: blob.size, type, path: `${me.userId}/${id}/${safe}`, uploaded: false } };
     await DB.put('messages', m); Bus.emit('messages'); Sync.soon(); return m;
   },
   async retry(id) {
@@ -1218,6 +1281,41 @@ const ProfileScreen = {
   }
 };
 
+/* 7.11b Anexos (fotos, vídeos, áudios e documentos) ------- */
+const MAX_FILE = 25 * 1048576;                 // igual ao limite da pasta no Supabase
+ICON.clip = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"/></svg>';
+const kindOf = t => /^image\/(jpeg|png|webp|gif)$/.test(t || '') ? 'image' : /^video\//.test(t || '') ? 'video' : /^audio\//.test(t || '') ? 'audio' : 'file';
+function msgPreview(m) {
+  if (!m.attachment) return m.body;
+  const k = kindOf(m.attachment.type);
+  const label = k === 'image' ? '📷 Foto' : k === 'video' ? '🎬 Vídeo' : k === 'audio' ? '🎵 Áudio' : '📎 ' + m.attachment.name;
+  return m.body ? `${label}: ${m.body}` : label;
+}
+function shrinkImage(file, max = 1600) {      // reduz fotos grandes antes de enviar
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onerror = () => rej(fr.error);
+    fr.onload = () => {
+      const img = new Image();
+      img.onerror = () => rej(new Error('imagem'));
+      img.onload = () => {
+        const k = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+        g.drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(b => b ? res(b) : rej(new Error('imagem')), 'image/jpeg', 0.85);
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+function saveFile(url, name) {
+  const a = document.createElement('a'); a.href = url; a.download = name || 'arquivo';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
 /* 7.12 Módulo Mensagens ----------------------------------- */
 Platform.register({
   id: 'messages', name: 'Mensagens', icon: '💬', colorVar: '--c-msg',
@@ -1302,7 +1400,7 @@ Platform.register({
       const p = cmap.get(c.peer) || { id: c.peer, name: 'Ex-contato' };
       const mine = c.last.from === me.userId;
       return `<a class="row-item" href="#/messages/chat/${encodeURIComponent(c.peer)}">${avatar(p)}
-        <span class="info"><b>${esc(p.name)}</b><small>${mine ? (STATUS_ICON[c.last.status] || '') + ' ' : ''}${esc(c.last.body)}</small></span>
+        <span class="info"><b>${esc(p.name)}</b><small>${mine ? (STATUS_ICON[c.last.status] || '') + ' ' : ''}${esc(msgPreview(c.last))}</small></span>
         <span class="side"><span>${shortTime(c.last.createdAt)}</span>${c.unread ? `<span class="count">${c.unread}</span>` : ''}</span></a>`;
     }).join('');
   },
@@ -1370,27 +1468,95 @@ Platform.register({
       <div class="pad" style="padding-bottom:0"><div class="conn" id="conn"></div></div>
       <div class="chat-log" id="log"></div>
       <form class="composer" id="comp">
+        <button type="button" class="attach" id="attBtn" aria-label="Anexar arquivo" ${contact ? '' : 'disabled'}>${ICON.clip}</button>
+        <input type="file" id="attIn" multiple hidden>
         <textarea id="msg" rows="1" maxlength="4000" aria-label="Mensagem" placeholder="${contact ? 'Mensagem' : 'Vocês não são mais contatos'}" ${contact ? '' : 'disabled'}></textarea>
         <button class="send" id="sendBtn" aria-label="Enviar" disabled>➤</button>
       </form></div>`;
-    let count = -1;
+    const urls = new Map(), loading = new Set(), failedDl = new Set();
+    this.off.push(() => { urls.forEach(u => URL.revokeObjectURL(u)); urls.clear(); });
+    let count = -1, msgs = [];
+    const find = id => msgs.find(x => x.id === id);
+
+    const ensureUrl = async m => {
+      if (urls.has(m.id)) return;
+      const f = await DB.get('files', m.id);
+      if (f && f.blob) urls.set(m.id, URL.createObjectURL(f.blob));
+    };
+    const fetchFile = async (m, quiet) => {
+      if (loading.has(m.id) || urls.has(m.id)) return;
+      if (!Backend.available || !Connection.internet()) { if (!quiet) toast('Sem internet para baixar o arquivo.'); return; }
+      loading.add(m.id); render();
+      try {
+        const blob = await CloudServer.download(m.attachment.path);
+        await DB.put('files', { id: m.id, blob, type: m.attachment.type, name: m.attachment.name });
+      } catch (e) { failedDl.add(m.id); if (!quiet) toast(mapErr(e).message); }
+      loading.delete(m.id); render();
+    };
+    const attHtml = m => {
+      const a = m.attachment, k = kindOf(a.type), url = urls.get(m.id), id = esc(m.id);
+      if (k === 'image' && url) return `<button type="button" class="att-img" data-view="${id}"><img src="${url}" alt="${esc(a.name)}"></button>`;
+      if (k === 'image') return `<button type="button" class="att-img ph" data-get="${id}">📷<small>${loading.has(m.id) ? 'Baixando…' : 'Foto, ' + fmtBytes(a.size) + ', toque para baixar'}</small></button>`;
+      if (k === 'video' && url) return `<video class="att-video" src="${url}" controls playsinline preload="metadata"></video>`;
+      if (k === 'audio' && url) return `<audio class="att-audio" src="${url}" controls preload="metadata"></audio>`;
+      const ic = k === 'video' ? '🎬' : k === 'audio' ? '🎵' : '📄';
+      const hint = url ? 'toque para salvar' : loading.has(m.id) ? 'baixando…' : 'toque para baixar';
+      return `<button type="button" class="att-file" data-${url ? 'open' : 'get'}="${id}"><span class="att-ic">${ic}</span><span class="info"><b>${esc(a.name)}</b><small>${fmtBytes(a.size)}, ${hint}</small></span></button>`;
+    };
     const render = async () => {
       const log = $('#log'); if (!log) return;
       const d = Connection.describe(), c = $('#conn'); c.className = 'conn' + (d.on ? ' on' : ''); c.innerHTML = `<i></i><span>${esc(d.text)}</span>`;
-      const msgs = (await DB.byIndex('messages', 'peer', peerId)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      msgs = (await DB.byIndex('messages', 'peer', peerId)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      for (const m of msgs) if (m.attachment) await ensureUrl(m);
       let html = '', lastDay = '';
       for (const m of msgs) {
         const t = new Date(m.createdAt), day = ymd(t);
         if (day !== lastDay) { html += `<div class="day-sep">${dayLabel(day)}</div>`; lastDay = day; }
         const mine = m.from === me.userId, hm = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
         const st = mine ? `<span class="tick" title="${STATUS_LABEL[m.status]}" aria-label="${STATUS_LABEL[m.status]}">${STATUS_ICON[m.status] || ''}</span>` : '';
-        html += `<div class="bubble${mine ? ' me' : ''}"${mine && m.status === 'failed' ? ` data-retry="${esc(m.id)}" role="button" tabindex="0"` : ''}>${esc(m.body)}<div class="st ${m.status}">${hm}${st}</div></div>`;
+        const att = m.attachment ? attHtml(m) : '', txt = m.body ? `<span class="txt">${esc(m.body)}</span>` : '';
+        html += `<div class="bubble${mine ? ' me' : ''}${att ? ' has-att' : ''}"${mine && m.status === 'failed' ? ` data-retry="${esc(m.id)}" role="button" tabindex="0"` : ''}>${att}${txt}<div class="st ${m.status}">${hm}${st}</div></div>`;
         if (mine && m.status === 'failed') html += `<small class="fail-note">${STATUS_LABEL.failed}${m.error ? ' (' + esc(m.error) + ')' : ''}</small>`;
       }
-      log.innerHTML = html || '<div class="empty"><p>Nenhuma mensagem ainda.</p><p>Escreva abaixo para começar.</p></div>';
+      if (!document.body.contains(log)) return;
+      log.innerHTML = html || '<div class="empty"><p>Nenhuma mensagem ainda.</p><p>Escreva abaixo ou toque no clipe para mandar um arquivo.</p></div>';
       if (msgs.length !== count) { count = msgs.length; window.scrollTo(0, document.documentElement.scrollHeight); }
       if (msgs.some(m => m.from === peerId && m.status === 'received')) await Messenger.markConversationRead(peerId);
+      // fotos recebidas até 8 MB baixam sozinhas; o resto só quando tocar
+      for (const m of msgs)
+        if (m.attachment && m.from === peerId && kindOf(m.attachment.type) === 'image' && m.attachment.size <= 8 * 1048576
+            && !urls.has(m.id) && !loading.has(m.id) && !failedDl.has(m.id)) fetchFile(m, true);
     };
+
+    const viewImage = m => {
+      const url = urls.get(m.id); if (!url) return;
+      const el = Sheet.open(`<img class="viewer-img" src="${url}" alt="${esc(m.attachment.name)}">
+        <div class="actions"><button class="btn grow" id="vsave">Salvar</button><button class="btn primary grow" id="vclose" autofocus>Fechar</button></div>`);
+      el.querySelector('#vsave').onclick = () => saveFile(url, m.attachment.name);
+      el.querySelector('#vclose').onclick = () => Sheet.close();
+    };
+    const pickFiles = files => {
+      const list = [...files]; if (!list.length || !contact) return;
+      const big = list.find(f => f.size > MAX_FILE);
+      if (big) return toast(`“${big.name}” passa de ${fmtBytes(MAX_FILE)}.`);
+      const one = list.length === 1 && /^image\//.test(list[0].type);
+      const prev = one ? URL.createObjectURL(list[0]) : null;
+      const el = Sheet.open(`<h2>${list.length > 1 ? `Enviar ${list.length} arquivos` : 'Enviar arquivo'}</h2>
+        ${prev ? `<img class="viewer-img" src="${prev}" alt="">` : `<ul class="mod-list">${list.map(f => `<li><span class="mini-ic">${({ image: '📷', video: '🎬', audio: '🎵' })[kindOf(f.type)] || '📄'}</span><span class="grow" style="min-width:0;overflow-wrap:anywhere">${esc(f.name)}<br><small class="muted">${fmtBytes(f.size)}</small></span></li>`).join('')}</ul>`}
+        <label class="field"><span>Legenda (opcional)</span><input id="cap" maxlength="1000"></label>
+        <p class="hint">Fotos grandes são reduzidas antes de enviar para economizar internet.</p>
+        <div class="actions"><button type="button" class="btn grow" id="fcancel">Cancelar</button><button type="button" class="btn primary grow" id="fsend" autofocus>Enviar</button></div>`,
+        { onClose: () => { if (prev) URL.revokeObjectURL(prev); } });
+      el.querySelector('#fcancel').onclick = () => Sheet.close();
+      el.querySelector('#fsend').onclick = async ev => {
+        ev.target.disabled = true;
+        const cap = el.querySelector('#cap').value;
+        try { for (let i = 0; i < list.length; i++) await Messenger.sendFile(peerId, list[i], i === 0 ? cap : ''); }
+        catch (x) { toast(x.message); }
+        Sheet.close();
+      };
+    };
+
     const ta = $('#msg'), btn = $('#sendBtn');
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; btn.disabled = !ta.value.trim() || !contact; };
     ta.addEventListener('input', grow);
@@ -1403,7 +1569,15 @@ Platform.register({
       ta.value = ''; grow();
       await Messenger.send(peerId, body); ta.focus();
     });
-    $('#log').addEventListener('click', e => { const b = e.target.closest('[data-retry]'); if (b) Messenger.retry(b.dataset.retry); });
+    $('#attBtn').onclick = () => $('#attIn').click();
+    $('#attIn').onchange = e => { pickFiles(e.target.files); e.target.value = ''; };
+    $('#log').addEventListener('click', e => {
+      const v = e.target.closest('[data-view]'), g = e.target.closest('[data-get]'), o = e.target.closest('[data-open]');
+      if (v) { const m = find(v.dataset.view); if (m) viewImage(m); return; }
+      if (g) { const m = find(g.dataset.get); if (m) { failedDl.delete(m.id); fetchFile(m); } return; }
+      if (o) { const m = find(o.dataset.open); if (m) saveFile(urls.get(m.id), m.attachment.name); return; }
+      const r = e.target.closest('[data-retry]'); if (r) Messenger.retry(r.dataset.retry);
+    });
     $('#log').addEventListener('keydown', e => { const b = e.target.closest('[data-retry]'); if (b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); Messenger.retry(b.dataset.retry); } });
     this.listen('sync', render); this.listen('messages', render); this.listen('conn', render);
     await render();
@@ -1808,7 +1982,8 @@ const FEATURES = [
   ['Comunicação por Bluetooth', 'android'],
   ['Bloquear usuário', 'future'],
   ['Instalar novos módulos pelo botão +', 'future'],
-  ['Imagens, áudios, grupos e chamadas', 'future']
+  ['Fotos, vídeos, áudios e documentos nas mensagens (até 25 MB)', 'ok'],
+  ['Grupos e chamadas', 'future']
 ];
 const Status = {
   id: 'status', name: 'Status do sistema',
