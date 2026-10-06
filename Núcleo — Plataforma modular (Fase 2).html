@@ -1,0 +1,1614 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Núcleo — Fase 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   TOKENS DE DESIGN
+   ========================================================= */
+:root{
+  --bg:#E8EDF1; --surface:#FFFFFF; --surface-2:#F1F4F7; --ink:#17222E; --ink-2:#5A6878; --line:#D3DCE4;
+  --primary:#2F5BD3; --on-primary:#FFFFFF; --danger:#C2334D;
+  --c-msg:#13897D; --c-notes:#C98A12; --c-calc:#3E4A5A; --c-cal:#C4385E;
+  --shadow:0 1px 2px rgba(23,34,46,.06), 0 6px 18px rgba(23,34,46,.07);
+  --font:"Sora", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E151D; --surface:#17212C; --surface-2:#1F2B38; --ink:#E6ECF2; --ink-2:#93A1B0; --line:#2A3847;
+    --primary:#7397FF; --on-primary:#0E151D; --danger:#FF6F86;
+    --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E151D; --surface:#17212C; --surface-2:#1F2B38; --ink:#E6ECF2; --ink-2:#93A1B0; --line:#2A3847;
+  --primary:#7397FF; --on-primary:#0E151D; --danger:#FF6F86;
+  --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);background:var(--bg)}
+body{margin:0;min-height:100%;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);
+  font-family:var(--font);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+a{color:var(--primary)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.muted{color:var(--ink-2)}
+.small{font-size:.8rem}
+.grow{flex:1}
+[hidden]{display:none!important}
+
+#app{flex:1;display:flex;flex-direction:column;width:100%;max-width:480px;margin:0 auto}
+#view{flex:1;display:flex;flex-direction:column}
+
+/* Barra superior */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:center;gap:4px;padding:8px 8px;background:var(--bg)}
+.topbar h1{flex:1;margin:0;font-size:1.1rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-actions{display:flex;gap:2px;align-items:center}
+.icon-btn{width:44px;height:44px;border-radius:14px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;font-size:1.3rem}
+.icon-btn:hover{background:var(--surface-2)}
+.icon-btn svg{width:22px;height:22px}
+.icon-btn[aria-pressed="true"]{color:var(--c-notes)}
+.text-btn{height:40px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:transparent;cursor:pointer;font-size:.88rem;font-weight:500}
+
+/* Início */
+.home{padding:36px 22px 40px}
+.clock{font-size:clamp(4.2rem,24vw,6.5rem);font-weight:300;letter-spacing:-.045em;line-height:.9;font-variant-numeric:tabular-nums}
+.date{color:var(--ink-2);margin-top:10px;font-size:1.02rem}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px 8px;margin-top:44px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:8px;text-decoration:none;color:var(--ink);font-size:.76rem;background:none;border:0;padding:0;cursor:pointer;text-align:center}
+.tile .ic{position:relative;width:64px;height:64px;border-radius:21px;display:grid;place-items:center;font-size:1.85rem;background:var(--tile);box-shadow:var(--shadow);transition:transform .15s}
+.tile:active .ic{transform:scale(.93)}
+.tile.add .ic{background:transparent;border:2px dashed var(--line);box-shadow:none;color:var(--ink-2);font-size:1.8rem;font-weight:300}
+.badge{position:absolute;top:-7px;right:-12px;font-style:normal;font-size:.58rem;font-weight:600;line-height:1;padding:4px 6px;border-radius:8px;background:var(--surface);color:var(--ink-2);border:1px solid var(--line)}
+
+.panel{background:var(--surface);border-radius:20px;padding:16px 18px;margin-top:16px}
+.home .panel{margin-top:40px}
+.panel h2{margin:0;font-size:.95rem;font-weight:600}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.panel-head a{font-size:.85rem;text-decoration:none}
+.today-ev{display:flex;gap:14px;padding:8px 0;text-decoration:none;color:var(--ink);border-top:1px solid var(--line)}
+.today-ev:first-child{border-top:0}
+.today-ev time{min-width:62px;color:var(--c-cal);font-weight:600;font-variant-numeric:tabular-nums}
+.home-foot{margin-top:22px;display:flex;justify-content:space-between;gap:12px;font-size:.8rem;color:var(--ink-2)}
+.home-foot a{color:var(--ink-2)}
+
+/* Listas e cartões */
+.pad{padding:4px 16px 120px}
+.search{width:100%;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--surface);padding:0 16px;font:inherit;color:var(--ink)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 0 14px;scrollbar-width:none}
+.chip{flex:none;height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--line);background:transparent;color:var(--ink-2);font-size:.85rem;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.card{display:block;background:var(--surface);border-radius:16px;padding:14px 16px;margin-bottom:10px;text-decoration:none;color:var(--ink)}
+.card h3{margin:0 0 4px;font-size:1rem;font-weight:600;overflow-wrap:anywhere}
+.card p{margin:0;color:var(--ink-2);font-size:.88rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line}
+.star{color:var(--c-notes)}
+.meta{display:flex;gap:10px;align-items:center;margin-top:8px;font-size:.75rem;color:var(--ink-2)}
+.cat{padding:2px 8px;border-radius:6px;background:var(--surface-2)}
+.empty{text-align:center;padding:56px 24px;color:var(--ink-2)}
+.empty p{margin:4px 0}
+.empty p:first-child{color:var(--ink);font-weight:500}
+
+.fab-wrap{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;display:flex;justify-content:flex-end;pointer-events:none;
+  padding:0 18px calc(20px + env(safe-area-inset-bottom,0px))}
+.fab{pointer-events:auto;height:54px;padding:0 22px;border-radius:18px;border:0;display:inline-flex;align-items:center;gap:6px;
+  background:var(--fab,var(--primary));color:#fff;font-weight:600;font-size:.95rem;text-decoration:none;box-shadow:0 8px 22px rgba(0,0,0,.18);cursor:pointer}
+
+/* Editor de nota */
+.editor{flex:1;display:flex;flex-direction:column;padding:0 18px 24px}
+.ed-title{width:100%;border:0;background:transparent;color:var(--ink);font:inherit;font-size:1.55rem;font-weight:600;padding:6px 0}
+.ed-title::placeholder,.editor textarea::placeholder{color:var(--ink-2);opacity:.7}
+.ed-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:6px 0 10px;border-bottom:1px solid var(--line);font-size:.8rem}
+.ed-cat{height:32px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:0 10px;font:inherit;font-size:.82rem;width:150px}
+.editor textarea{flex:1;min-height:55vh;border:0;background:transparent;resize:none;font:inherit;font-size:1rem;line-height:1.65;color:var(--ink);padding:14px 0}
+.editor textarea:focus,.ed-title:focus{outline:none}
+
+/* Calculadora */
+.calc{flex:1;display:flex;flex-direction:column;padding:0 14px 16px}
+.display{flex:1;min-height:170px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;gap:4px;padding:12px 6px 18px;text-align:right}
+.prev-expr{font-size:.95rem;min-height:1.4em;overflow-wrap:anywhere}
+.expr{font-size:clamp(2.2rem,11vw,3.2rem);font-weight:400;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.preview{color:var(--ink-2);font-size:1.25rem;min-height:1.5em;font-variant-numeric:tabular-nums}
+.keys{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.key{height:clamp(58px,9.5vh,74px);border:0;border-radius:22px;background:var(--surface);font-size:1.55rem;cursor:pointer;font-variant-numeric:tabular-nums;transition:transform .08s}
+.key:active{transform:scale(.95)}
+.key.fn{background:var(--surface-2);color:var(--ink-2);font-size:1.15rem;font-weight:500}
+.key.op{background:var(--surface-2);color:var(--primary);font-size:1.7rem}
+.key.eq{background:var(--primary);color:var(--on-primary);font-size:1.7rem}
+.hist{list-style:none;margin:0 0 12px;padding:0}
+.hist button{width:100%;display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding:12px 4px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;text-align:right}
+.hist b{font-size:1.2rem;font-weight:600}
+
+/* Calendário */
+.cal{padding-bottom:120px}
+.cal-head{display:flex;align-items:center;gap:4px;padding:0 10px}
+.cal-head h2{flex:1;margin:0;text-align:center;font-size:1.2rem;font-weight:600}
+.weekdays,.days{display:grid;grid-template-columns:repeat(7,1fr);padding:0 10px}
+.weekdays span{text-align:center;font-size:.75rem;color:var(--ink-2);padding:10px 0 4px}
+.day{aspect-ratio:1/1;border:0;border-radius:14px;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;font-size:.95rem;font-variant-numeric:tabular-nums}
+.day.out{opacity:.38}
+.day.today{color:var(--c-cal);font-weight:700}
+.day[aria-pressed="true"]{background:var(--c-cal);color:#fff;font-weight:600}
+.dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.day-panel{margin:14px 16px 0}
+.day-panel h3{margin:0 0 10px;font-size:1rem;font-weight:600}
+.ev{width:100%;display:flex;gap:14px;align-items:flex-start;background:var(--surface);border:0;border-radius:16px;padding:14px 16px;margin-bottom:10px;text-align:left;cursor:pointer}
+.ev time{min-width:58px;font-weight:600;color:var(--c-cal);font-variant-numeric:tabular-nums}
+.ev b{display:block;font-weight:600;overflow-wrap:anywhere}
+.ev small{display:block;color:var(--ink-2);font-size:.82rem;margin-top:2px;overflow-wrap:anywhere}
+
+/* Mensagens / status */
+.notice{background:var(--surface);border-radius:20px;padding:20px}
+.notice h2{margin:0 0 8px;font-size:1.1rem}
+.notice p{margin:0;color:var(--ink-2);font-size:.92rem}
+.sec{font-size:.95rem;margin:26px 0 10px}
+.phases{margin:0;padding:0;list-style:none}
+.phases li{background:var(--surface);border-radius:16px;padding:14px 16px;margin-bottom:10px;font-size:.9rem}
+.phases b{display:block;margin-bottom:4px}
+.phases .tag{margin-top:8px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:10px 16px;margin:12px 0 4px;font-size:.88rem}
+.kv dt{color:var(--ink-2)}
+.kv dd{margin:0;text-align:right;font-weight:500}
+.status-list{list-style:none;margin:8px 0 0;padding:0}
+.status-list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line);font-size:.88rem}
+.seg{display:flex;gap:6px;margin-top:12px}
+.seg button{flex:1;height:40px;border-radius:12px;border:1px solid var(--line);background:transparent;cursor:pointer;font-size:.85rem}
+.seg button[aria-checked="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.mod-list{list-style:none;margin:14px 0;padding:0}
+.mod-list li{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.mini-ic{width:38px;height:38px;border-radius:12px;background:var(--surface-2);display:grid;place-items:center;font-size:1.2rem}
+
+.tag{display:inline-block;font-size:.68rem;font-weight:600;padding:4px 8px;border-radius:7px;white-space:nowrap;line-height:1.1}
+.tag.ok{background:color-mix(in srgb,var(--c-msg) 16%,transparent);color:var(--c-msg)}
+.tag.proto{background:color-mix(in srgb,var(--c-notes) 18%,transparent);color:var(--c-notes)}
+.tag.backend{background:color-mix(in srgb,var(--primary) 15%,transparent);color:var(--primary)}
+.tag.android{background:color-mix(in srgb,var(--c-cal) 15%,transparent);color:var(--c-cal)}
+.tag.future{background:var(--surface-2);color:var(--ink-2)}
+
+/* Folha inferior (formulários e confirmações) */
+.backdrop{position:fixed;inset:0;z-index:20;background:rgba(8,14,22,.45);opacity:0;transition:opacity .2s}
+.backdrop.open{opacity:1}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;max-width:480px;margin:0 auto;max-height:90%;overflow:auto;background:var(--surface);
+  border-radius:26px 26px 0 0;padding:8px 20px calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .26s cubic-bezier(.2,.8,.2,1)}
+.sheet.open{transform:none}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 16px}
+.sheet h2{margin:0 0 14px;font-size:1.15rem;font-weight:600}
+.sheet p{margin:0 0 12px}
+.field{display:block;margin-bottom:14px}
+.field span{display:block;font-size:.8rem;color:var(--ink-2);margin-bottom:6px}
+.field input,.field textarea,.field select{width:100%;min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);padding:11px 12px;font:inherit}
+.field textarea{resize:vertical}
+.row{display:flex;gap:10px}
+.row>*{flex:1;min-width:0}
+.hint{font-size:.78rem;color:var(--ink-2)}
+.err{color:var(--danger);font-size:.85rem;min-height:1em}
+.actions{display:flex;gap:10px;margin-top:8px}
+.btn{height:50px;padding:0 18px;border-radius:15px;border:0;background:var(--surface-2);font-weight:600;cursor:pointer}
+.btn.primary{background:var(--primary);color:var(--on-primary)}
+.btn.danger{background:transparent;color:var(--danger)}
+.btn.danger-fill{background:var(--danger);color:#fff}
+
+.toast-wrap{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;justify-content:center;pointer-events:none;padding:0 16px calc(92px + env(safe-area-inset-bottom,0px))}
+.toast{background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:14px;font-size:.88rem;opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;max-width:420px}
+.toast.show{opacity:1;transform:none}
+
+/* Fase 2 — perfil, contatos, conversas */
+.home{position:relative}
+.home-top{position:absolute;top:24px;right:20px}
+.home-top a{display:block;border-radius:50%;text-decoration:none}
+.badge.n{background:var(--c-msg);color:#fff;border-color:transparent;font-size:.68rem;padding:4px 7px}
+.avatar{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:.95rem;color:#fff;background:var(--av,var(--c-msg));overflow:hidden;object-fit:cover}
+.avatar.sm{width:38px;height:38px;font-size:.82rem}
+.avatar.lg{width:104px;height:104px;font-size:2.2rem}
+img.avatar{background:var(--surface-2)}
+.tabs{display:flex;gap:6px;padding:4px 16px 12px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 60px);background:var(--bg);z-index:4}
+.tabs a{flex:1;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;color:var(--ink-2);font-size:.86rem;font-weight:500;border:1px solid var(--line)}
+.tabs a[aria-current="page"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.count{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--c-msg);color:#fff;font-size:.7rem;font-weight:700;display:inline-grid;place-items:center}
+.row-item{display:flex;align-items:center;gap:12px;width:100%;padding:12px 2px;border:0;border-bottom:1px solid var(--line);background:none;text-decoration:none;color:var(--ink);text-align:left}
+a.row-item{cursor:pointer}
+.row-item .info{flex:1;min-width:0}
+.row-item .info b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-item .info small{display:block;color:var(--ink-2);font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-item .side{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-size:.72rem;color:var(--ink-2)}
+.handle{font-variant-numeric:tabular-nums;color:var(--ink-2);font-weight:500}
+.conn{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--ink-2);padding:9px 12px;border-radius:12px;background:var(--surface);margin-bottom:12px}
+.conn i{flex:none;width:8px;height:8px;border-radius:50%;background:var(--ink-2)}
+.conn.on i{background:var(--c-msg)}
+.btn.sm{height:38px;padding:0 13px;border-radius:12px;font-size:.84rem}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.chat{flex:1;display:flex;flex-direction:column}
+.chat-log{flex:1;padding:4px 14px 12px;display:flex;flex-direction:column;gap:6px}
+.bubble{max-width:82%;padding:9px 12px 5px;border-radius:18px 18px 18px 6px;background:var(--surface);align-self:flex-start;overflow-wrap:anywhere;white-space:pre-wrap;font-size:.95rem;line-height:1.4}
+.bubble.me{align-self:flex-end;border-radius:18px 18px 6px 18px;background:color-mix(in srgb,var(--c-msg) 22%,var(--surface))}
+.bubble[data-retry]{cursor:pointer;outline:1px solid var(--danger)}
+.st{display:flex;justify-content:flex-end;gap:5px;font-size:.68rem;color:var(--ink-2);margin-top:2px;white-space:nowrap}
+.st.read .tick{color:var(--primary)}
+.st.failed .tick{color:var(--danger)}
+.fail-note{align-self:flex-end;color:var(--danger);font-size:.72rem;margin-top:-2px}
+.day-sep{align-self:center;font-size:.72rem;color:var(--ink-2);padding:8px 0 4px}
+.composer{position:sticky;bottom:0;display:flex;gap:8px;align-items:flex-end;padding:8px 12px 12px;background:var(--bg)}
+.composer textarea{flex:1;min-height:46px;max-height:140px;border-radius:23px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:12px 16px;font:inherit;resize:none}
+.send{flex:none;width:46px;height:46px;border-radius:50%;border:0;background:var(--c-msg);color:#fff;font-size:1.15rem;cursor:pointer}
+.send:disabled{opacity:.35;cursor:default}
+.sim-banner{font-size:.78rem;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--c-notes) 16%,transparent);color:var(--ink);margin-bottom:12px}
+.switch-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0}
+.switch{flex:none;width:50px;height:30px;border-radius:15px;border:0;background:var(--line);position:relative;cursor:pointer}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}
+.switch[aria-checked="true"]{background:var(--c-msg)}
+.switch[aria-checked="true"]::after{transform:translateX(20px)}
+.profile-head{display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px 0 18px}
+.profile-head .tagline{font-size:1.35rem;font-weight:600}
+.photo-btn{position:relative;border:0;background:none;padding:0;cursor:pointer;border-radius:50%}
+.photo-btn .cam{position:absolute;right:-2px;bottom:-2px;width:34px;height:34px;border-radius:50%;background:var(--primary);color:var(--on-primary);display:grid;place-items:center;font-size:.95rem;border:3px solid var(--bg)}
+.test-user{background:var(--surface);border-radius:16px;padding:14px;margin-bottom:10px}
+.test-user .btn-row{margin-top:10px}
+.inline-form{display:flex;gap:8px;margin-top:10px}
+.inline-form input{flex:1;min-width:0;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);padding:0 12px;font:inherit}
+
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar" id="topbar" hidden>
+    <button class="icon-btn" id="backBtn" aria-label="Voltar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <h1 id="topTitle"></h1>
+    <div class="top-actions" id="topActions"></div>
+  </header>
+  <main id="view"></main>
+</div>
+<div class="backdrop" id="backdrop" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" hidden></div>
+<div class="toast-wrap"><div class="toast" id="toast" role="status"></div></div>
+
+<script>
+'use strict';
+/* =========================================================
+   1. UTILITÁRIOS
+   ========================================================= */
+const $ = (s, r = document) => r.querySelector(s);
+const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+  : 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+const now = () => new Date().toISOString();
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const byTime = (a, b) => (a.time || '').localeCompare(b.time || '');
+const fmtBytes = n => n == null ? '—' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+function fmtWhen(iso) {
+  const d = new Date(iso), t = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const today = ymd(new Date()), y = new Date(); y.setDate(y.getDate() - 1);
+  if (ymd(d) === today) return `Hoje, ${t}`;
+  if (ymd(d) === ymd(y)) return `Ontem, ${t}`;
+  return `${d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })}, ${t}`;
+}
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+const ICON = {
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  history: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"/></svg>'
+};
+const TAGS = { ok: ['ok', 'Implementado'], proto: ['proto', 'Protótipo'], backend: ['backend', 'Depende de backend'],
+               android: ['android', 'Depende do Android'], future: ['future', 'Futuro'] };
+const tag = k => `<span class="tag ${TAGS[k][0]}">${TAGS[k][1]}</span>`;
+
+/* =========================================================
+   2. BANCO LOCAL — IndexedDB (com reserva em memória)
+   Na versão APK, esta camada pode ser trocada por SQLite
+   (plugin Capacitor) sem mudar os módulos.
+   ========================================================= */
+const DB = (() => {
+  const NAME = 'nucleo', VERSION = 2;
+  const KEYS = { notes: 'id', events: 'id', calcHistory: 'id', settings: 'key', outbox: 'id',
+                 contacts: 'id', requests: 'id', messages: 'id', sim_users: 'id', sim_requests: 'id', sim_messages: 'id' };
+  let idb = null, mem = null, engine = 'none';
+  const p = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  const useMemory = () => { mem = {}; for (const k in KEYS) mem[k] = new Map(); engine = 'memory'; };
+  function open() {
+    return new Promise(res => {
+      try {
+        const req = indexedDB.open(NAME, VERSION);
+        req.onupgradeneeded = ev => {
+          const d = req.result, old = ev.oldVersion;
+          if (old < 1) {                                   // Fase 1
+            d.createObjectStore('notes', { keyPath: 'id' }).createIndex('updatedAt', 'updatedAt');
+            d.createObjectStore('events', { keyPath: 'id' }).createIndex('date', 'date');
+            d.createObjectStore('calcHistory', { keyPath: 'id' }).createIndex('createdAt', 'createdAt');
+            d.createObjectStore('settings', { keyPath: 'key' });
+            d.createObjectStore('outbox', { keyPath: 'id' });
+          }
+          if (old < 2) {                                   // Fase 2 (migração sem perder dados)
+            d.createObjectStore('contacts', { keyPath: 'id' });
+            d.createObjectStore('requests', { keyPath: 'id' });
+            d.createObjectStore('messages', { keyPath: 'id' }).createIndex('peer', 'peer');
+            d.createObjectStore('sim_users', { keyPath: 'id' });
+            d.createObjectStore('sim_requests', { keyPath: 'id' });
+            d.createObjectStore('sim_messages', { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = () => { idb = req.result; idb.onversionchange = () => idb.close(); engine = 'indexeddb'; res(engine); };
+        req.onerror = () => { useMemory(); res(engine); };
+        req.onblocked = () => { useMemory(); res(engine); };
+      } catch (e) { useMemory(); res(engine); }
+    });
+  }
+  const st = (name, mode = 'readonly') => idb.transaction(name, mode).objectStore(name);
+  return {
+    open, get engine() { return engine; },
+    async all(n) { return mem ? [...mem[n].values()].map(v => structuredClone(v)) : p(st(n).getAll()); },
+    async get(n, k) { return mem ? structuredClone(mem[n].get(k)) : p(st(n).get(k)); },
+    async put(n, v) { if (mem) { mem[n].set(v[KEYS[n]], structuredClone(v)); return; } return p(st(n, 'readwrite').put(v)); },
+    async del(n, k) { if (mem) { mem[n].delete(k); return; } return p(st(n, 'readwrite').delete(k)); },
+    async clear(n) { if (mem) { mem[n].clear(); return; } return p(st(n, 'readwrite').clear()); },
+    async count(n) { return mem ? mem[n].size : p(st(n).count()); },
+    async byIndex(n, idx, val) { return mem ? [...mem[n].values()].filter(v => v[idx] === val).map(v => structuredClone(v)) : p(st(n).index(idx).getAll(val)); }
+  };
+})();
+
+/* =========================================================
+   3. REPOSITÓRIOS + FILA DE SINCRONIZAÇÃO (outbox)
+   Cada registro já nasce pronto para sincronizar:
+   id único, versão, data de alteração, aparelho de origem,
+   exclusão lógica (para propagar exclusões) e status.
+   ========================================================= */
+const App = { deviceId: null };
+const Outbox = {
+  // Uma entrada por registro: várias edições seguidas não geram duplicatas
+  enqueue(entity, entityId, op) { return DB.put('outbox', { id: `${entity}:${entityId}`, entity, entityId, op, queuedAt: now() }); },
+  count() { return DB.count('outbox'); }
+};
+function Repository(name) {
+  return {
+    async list() { return (await DB.all(name)).filter(r => !r.deleted); },
+    async get(id) { const r = await DB.get(name, id); return r && !r.deleted ? r : null; },
+    async save(data) {
+      const prev = data.id ? await DB.get(name, data.id) : null;
+      const rec = { ...(prev || {}), ...data,
+        id: data.id || uid(),
+        createdAt: (prev && prev.createdAt) || now(),
+        updatedAt: now(),
+        version: ((prev && prev.version) || 0) + 1,
+        deviceId: App.deviceId,
+        deleted: false,
+        syncStatus: 'pending' };
+      await DB.put(name, rec);
+      await Outbox.enqueue(name, rec.id, 'upsert');
+      return rec;
+    },
+    async remove(id) {
+      const prev = await DB.get(name, id); if (!prev) return;
+      await DB.put(name, { ...prev, deleted: true, updatedAt: now(), version: (prev.version || 0) + 1, syncStatus: 'pending' });
+      await Outbox.enqueue(name, id, 'delete');
+    }
+  };
+}
+const Notes = Repository('notes');
+const Events = Repository('events');
+const Settings = {
+  async get(key, fallback = null) { const r = await DB.get('settings', key); return r ? r.value : fallback; },
+  set(key, value) { return DB.put('settings', { key, value }); }
+};
+function applyTheme(t) {
+  if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+  else document.documentElement.removeAttribute('data-theme');
+}
+
+/* =========================================================
+   4. INTERFACE COMPARTILHADA (barra, folha, confirmação)
+   ========================================================= */
+const Topbar = {
+  back: '#/',
+  show(title, backHref) { $('#topbar').hidden = false; $('#topTitle').textContent = title; this.back = backHref; $('#topActions').innerHTML = ''; },
+  hide() { $('#topbar').hidden = true; $('#topActions').innerHTML = ''; },
+  setTitle(t) { $('#topTitle').textContent = t; },
+  actions(html) { const a = $('#topActions'); a.innerHTML = html; return a; }
+};
+$('#backBtn').addEventListener('click', () => { location.hash = Topbar.back || '#/'; });
+
+const Sheet = (() => {
+  const back = $('#backdrop'), el = $('#sheet');
+  let onClose = null, lastFocus = null, gen = 0;
+  function open(html, opts = {}) {
+    gen++;
+    lastFocus = document.activeElement;
+    el.innerHTML = '<div class="grab"></div>' + html;
+    back.hidden = false; el.hidden = false;
+    void el.offsetHeight;
+    back.classList.add('open'); el.classList.add('open');
+    onClose = opts.onClose || null;
+    const f = el.querySelector('[autofocus]') || el.querySelector('button, input');
+    setTimeout(() => f && f.focus({ preventScroll: true }), 80);
+    return el;
+  }
+  function close() {
+    if (el.hidden) return;
+    const g = ++gen;
+    back.classList.remove('open'); el.classList.remove('open');
+    setTimeout(() => { if (g === gen) { back.hidden = true; el.hidden = true; el.innerHTML = ''; } }, 240);
+    const cb = onClose; onClose = null; if (cb) cb();
+    if (lastFocus && lastFocus.focus && document.body.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
+  }
+  back.addEventListener('click', close);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  return { open, close, get isOpen() { return !el.hidden && el.classList.contains('open'); } };
+})();
+
+function confirmSheet(title, detail, okLabel = 'Excluir') {
+  return new Promise(res => {
+    let done = false;
+    const el = Sheet.open(`<h2>${esc(title)}</h2><p class="muted">${esc(detail)}</p>
+      <div class="actions"><button class="btn grow" data-a="no">Cancelar</button><button class="btn danger-fill grow" data-a="ok">${esc(okLabel)}</button></div>`,
+      { onClose: () => { if (!done) { done = true; res(false); } } });
+    el.querySelector('[data-a=ok]').onclick = () => { done = true; res(true); Sheet.close(); };
+    el.querySelector('[data-a=no]').onclick = () => Sheet.close();
+  });
+}
+
+/* =========================================================
+   5. PLATAFORMA — registro de módulos e rotas
+   Para criar um módulo novo: Platform.register({ id, name,
+   icon, colorVar, mount(view, params), unmount() }).
+   A tela inicial e o roteador o reconhecem sozinhos.
+   ========================================================= */
+const Platform = {
+  modules: new Map(),
+  register(mod) {
+    if (!mod.id || !mod.mount) throw new Error('Módulo precisa de id e mount()');
+    if (this.modules.has(mod.id)) throw new Error('Módulo duplicado: ' + mod.id);
+    this.modules.set(mod.id, mod);
+  }
+};
+let current = null;
+async function route() {
+  const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
+  const id = parts[0] || 'home';
+  if (!$('#sheet').hidden) Sheet.close();
+  if (current && current.unmount) { try { await current.unmount(); } catch (e) { console.error(e); } }
+  current = null;
+  const view = $('#view'); view.innerHTML = '';
+  window.scrollTo(0, 0);
+  const mod = id === 'home' ? Home : id === 'status' ? Status : id === 'profile' ? ProfileScreen : Platform.modules.get(id);
+  if (!mod) { location.hash = '#/'; return; }
+  current = mod;
+  if (mod === Home) Topbar.hide(); else Topbar.show(mod.name, parts.length > 1 ? '#/' + parts[0] : '#/');
+  try { await mod.mount(view, parts.slice(1)); }
+  catch (e) {
+    console.error(e);
+    view.innerHTML = `<div class="empty"><p>Não foi possível abrir ${esc(mod.name)}.</p><p>${esc(e.message)}</p></div>`;
+  }
+}
+
+/* =========================================================
+   6. TELA INICIAL
+   ========================================================= */
+const FUTURE_MODULES = [['👥', 'Contatos'], ['📁', 'Arquivos'], ['🖼️', 'Galeria'], ['📷', 'Câmera'], ['🎙️', 'Gravador'], ['✅', 'Tarefas']];
+const Home = {
+  id: 'home', name: 'Início', timer: null,
+  async mount(view) {
+    const mods = [...Platform.modules.values()];
+    view.innerHTML = `<section class="home">
+      <div class="home-top"><a href="#/profile" aria-label="${Identity.profile ? 'Meu perfil' : 'Criar perfil'}">${avatar(Identity.profile || { name: '+' }, 'sm')}</a></div>
+      <div class="clock" id="clock"></div>
+      <div class="date" id="date"></div>
+      <nav class="grid" aria-label="Aplicativos">
+        ${mods.map(m => `<a class="tile" href="#/${m.id}" style="--tile:var(${m.colorVar})">
+          <span class="ic" aria-hidden="true">${m.icon}${m.badge ? `<i class="badge">${esc(m.badge)}</i>` : ''}</span>
+          <span>${esc(m.name)}</span></a>`).join('')}
+        <button class="tile add" id="addMod"><span class="ic" aria-hidden="true">+</span><span>Adicionar</span></button>
+      </nav>
+      <section class="panel" aria-labelledby="todayH">
+        <div class="panel-head"><h2 id="todayH">Hoje</h2><a href="#/calendar">Abrir calendário</a></div>
+        <div id="today"></div>
+      </section>
+      <footer class="home-foot"><a href="#/status">Status do sistema</a><span id="engine"></span></footer>
+    </section>`;
+    const tick = () => {
+      const d = new Date();
+      $('#clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      $('#date').textContent = cap(d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }));
+    };
+    tick(); this.timer = setInterval(tick, 10000);
+    $('#addMod').addEventListener('click', () => {
+      const el = Sheet.open(`<h2>Adicionar módulo</h2>
+        <p class="muted">Estes módulos estão planejados. A plataforma já está preparada para recebê-los sem mexer no que existe.</p>
+        <ul class="mod-list">${FUTURE_MODULES.map(([i, n]) => `<li><span class="mini-ic">${i}</span><span class="grow">${n}</span>${tag('future')}</li>`).join('')}</ul>
+        <div class="actions"><button class="btn grow" id="closeAdd">Fechar</button></div>`);
+      el.querySelector('#closeAdd').onclick = () => Sheet.close();
+    });
+    $('#engine').textContent = DB.engine === 'indexeddb' ? 'Dados salvos neste aparelho' : 'Modo temporário: nada será salvo';
+    const unread = (await DB.all('messages')).filter(m => m.status === 'received').length;
+    const msgIc = view.querySelector('a[href="#/messages"] .ic');
+    if (unread && msgIc) msgIc.insertAdjacentHTML('beforeend', `<i class="badge n">${unread > 99 ? '99+' : unread}</i>`);
+    const today = ymd(new Date());
+    const evs = (await Events.list()).filter(e => e.date === today).sort(byTime);
+    $('#today').innerHTML = evs.length
+      ? evs.slice(0, 4).map(e => `<a class="today-ev" href="#/calendar/${today}"><time>${e.time || 'Dia todo'}</time><span>${esc(e.title)}</span></a>`).join('')
+        + (evs.length > 4 ? `<p class="muted small">+${evs.length - 4} no calendário</p>` : '')
+      : '<p class="muted" style="margin:0">Nada marcado para hoje.</p>';
+  },
+  unmount() { clearInterval(this.timer); }
+};
+
+/* =========================================================
+   7. FASE 2 — IDENTIDADE, CONTATOS, SOLICITAÇÕES E MENSAGENS
+   ========================================================= */
+const Bus = {
+  l: {},
+  on(e, f) { (this.l[e] = this.l[e] || new Set()).add(f); return () => this.l[e].delete(f); },
+  emit(e, d) { (this.l[e] || []).forEach(f => { try { f(d); } catch (x) { console.error(x); } }); }
+};
+const randNum = () => { const a = new Uint32Array(1); crypto.getRandomValues(a); return String(1000 + (a[0] % 9000)); };
+const parseTag = s => { const m = String(s || '').trim().match(/^(.+?)\s*#\s*(\d{4})$/); return m ? { name: m[1].trim(), number: m[2] } : null; };
+const sameName = (a, b) => norm(a).trim() === norm(b).trim();
+const shortTime = iso => { const d = new Date(iso); return ymd(d) === ymd(new Date()) ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); };
+function dayLabel(k) {
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  if (k === ymd(new Date())) return 'Hoje';
+  if (k === ymd(y)) return 'Ontem';
+  const [a, b, c] = k.split('-').map(Number);
+  return new Date(a, b - 1, c).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+function avatar(p, size = '') {
+  const cls = 'avatar' + (size ? ' ' + size : '');
+  if (p && typeof p.photo === 'string' && p.photo.startsWith('data:image/')) return `<img class="${cls}" src="${esc(p.photo)}" alt="">`;
+  const name = (p && p.name) || '?';
+  const ini = name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+  const hues = ['#13897D', '#2F5BD3', '#C4385E', '#B07A10', '#6B4FC4', '#3E7D3A'];
+  let h = 0; for (const ch of String((p && (p.userId || p.id)) || name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return `<span class="${cls}" style="--av:${hues[h % hues.length]}" aria-hidden="true">${esc(ini)}</span>`;
+}
+function readPhoto(file, size = 192) {
+  return new Promise((res, rej) => {
+    if (!file || !/^image\//.test(file.type)) return rej(new Error('Escolha um arquivo de imagem.'));
+    const fr = new FileReader();
+    fr.onerror = () => rej(new Error('Não foi possível ler essa imagem.'));
+    fr.onload = () => {
+      const img = new Image();
+      img.onerror = () => rej(new Error('Formato de imagem não suportado.'));
+      img.onload = () => {
+        const c = document.createElement('canvas'); c.width = c.height = size;
+        const s = Math.min(img.width, img.height);
+        c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+        res(c.toDataURL('image/jpeg', 0.82));          // ~10–20 KB, pronta para sincronizar
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+/* 7.1 Identidade do usuário ------------------------------- */
+const Identity = {
+  profile: null,
+  async load() { this.profile = await Settings.get('profile'); return this.profile; },
+  tagOf(p) { return `${p.name} #${p.number}`; },
+  async create(name, photo) {
+    const p = { userId: uid(), name, photo: photo || '', number: randNum(), createdAt: now(), updatedAt: now(), registered: false };
+    await Settings.set('profile', p); this.profile = p; Bus.emit('profile'); Sync.soon(); return p;
+  },
+  async update(fields) {
+    const p = { ...this.profile, ...fields, updatedAt: now(), registered: false };
+    await Settings.set('profile', p); this.profile = p; Bus.emit('profile'); Sync.soon(); return p;
+  }
+};
+function validName(n) {
+  if (n.length < 2) return 'O nome precisa ter pelo menos 2 letras.';
+  if (n.length > 30) return 'Use no máximo 30 caracteres.';
+  if (n.includes('#')) return 'O nome não pode ter o símbolo #.';
+  return '';
+}
+
+/* 7.2 Servidor — interface única com adaptadores ----------
+   Os módulos só conversam com Backend.current(). Na Fase 3,
+   um adaptador Supabase (ou outro) entra aqui sem mudar telas. */
+class BackendError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
+const OFFLINE_MSG = 'O servidor central ainda não existe. Ele chega na Fase 3.';
+const NoServer = new Proxy({ id: 'none' }, {
+  get(t, k) { return k in t ? t[k] : async () => { throw new BackendError('NO_BACKEND', OFFLINE_MSG); }; }
+});
+const pub = u => ({ id: u.id, name: u.name, number: u.number, photo: u.photo || '', isTest: !!u.isTest });
+
+/* Simulador [PROTÓTIPO]: imita as regras do servidor dentro do aparelho */
+const SimServer = {
+  id: 'sim',
+  async upsertUser(p) {
+    const all = await DB.all('sim_users');
+    if (all.some(u => u.id !== p.userId && u.number === p.number && sameName(u.name, p.name)))
+      throw new BackendError('TAG_TAKEN', 'Esse identificador já está em uso.');
+    const prev = all.find(u => u.id === p.userId);
+    await DB.put('sim_users', { id: p.userId, name: p.name, number: p.number, photo: p.photo || '',
+      isTest: !!(prev && prev.isTest) || !!p.isTest, createdAt: prev ? prev.createdAt : now(), updatedAt: now() });
+  },
+  async findByTag(name, number) {
+    const u = (await DB.all('sim_users')).find(x => x.number === number && sameName(x.name, name));
+    return u ? pub(u) : null;
+  },
+  async sendRequest(fromId, toId) {
+    if (fromId === toId) throw new BackendError('SELF', 'Você não pode adicionar a si mesmo.');
+    if (!(await DB.get('sim_users', toId))) throw new BackendError('NOT_FOUND', 'Usuário não encontrado.');
+    const between = (await DB.all('sim_requests')).filter(r =>
+      (r.fromId === fromId && r.toId === toId) || (r.fromId === toId && r.toId === fromId));
+    if (between.some(r => r.status === 'accepted')) throw new BackendError('ALREADY', 'Vocês já são contatos.');
+    if (between.some(r => r.status === 'pending' && r.fromId === fromId)) throw new BackendError('DUP', 'Você já enviou uma solicitação para essa pessoa.');
+    if (between.some(r => r.status === 'pending' && r.fromId === toId)) throw new BackendError('REVERSE', 'Essa pessoa já te enviou uma solicitação. Aceite em Solicitações.');
+    const r = { id: uid(), fromId, toId, status: 'pending', createdAt: now(), respondedAt: null };
+    await DB.put('sim_requests', r); return r;
+  },
+  async respond(reqId, userId, accept) {
+    const r = await DB.get('sim_requests', reqId);
+    if (!r || r.toId !== userId) throw new BackendError('NOT_FOUND', 'Solicitação não encontrada.');
+    if (r.status !== 'pending') throw new BackendError('DONE', 'Essa solicitação já foi respondida.');
+    r.status = accept ? 'accepted' : 'declined'; r.respondedAt = now();
+    await DB.put('sim_requests', r); return r;
+  },
+  async cancel(reqId, userId) {
+    const r = await DB.get('sim_requests', reqId);
+    if (!r || r.fromId !== userId) throw new BackendError('NOT_FOUND', 'Solicitação não encontrada.');
+    if (r.status !== 'pending') throw new BackendError('DONE', 'Essa solicitação já foi respondida.');
+    r.status = 'cancelled'; r.respondedAt = now(); await DB.put('sim_requests', r); return r;
+  },
+  async snapshot(userId) {
+    const [users, rs] = await Promise.all([DB.all('sim_users'), DB.all('sim_requests')]);
+    const map = new Map(users.map(u => [u.id, pub(u)]));
+    const mine = rs.filter(r => r.fromId === userId || r.toId === userId);
+    return {
+      contacts: mine.filter(r => r.status === 'accepted').map(r => map.get(r.fromId === userId ? r.toId : r.fromId)).filter(Boolean),
+      requests: mine.map(r => ({ ...r, from: map.get(r.fromId), to: map.get(r.toId) }))
+    };
+  },
+  async sendMessage(m) {
+    const existing = await DB.get('sim_messages', m.id);
+    if (existing) return { serverAt: existing.serverAt };            // mesmo ID = não duplica
+    const { contacts } = await this.snapshot(m.from);
+    if (!contacts.some(c => c.id === m.to)) throw new BackendError('NOT_CONTACT', 'Vocês não são contatos.');
+    const rec = { id: m.id, from: m.from, to: m.to, body: m.body, createdAt: m.createdAt, serverAt: now(), deliveredAt: null, readAt: null };
+    await DB.put('sim_messages', rec); return { serverAt: rec.serverAt };
+  },
+  async pull(userId) {                                                // entrega o que estava guardado
+    const all = await DB.all('sim_messages');
+    const incoming = all.filter(m => m.to === userId && !m.deliveredAt);
+    for (const m of incoming) { m.deliveredAt = now(); await DB.put('sim_messages', m); }
+    const receipts = all.filter(m => m.from === userId).map(m => ({ id: m.id, deliveredAt: m.deliveredAt, readAt: m.readAt }));
+    return { incoming, receipts };
+  },
+  async markRead(userId, peerId) {
+    for (const m of await DB.all('sim_messages'))
+      if (m.to === userId && m.from === peerId && !m.readAt) { m.readAt = now(); m.deliveredAt = m.deliveredAt || m.readAt; await DB.put('sim_messages', m); }
+  },
+  test: {
+    async create(name) {
+      for (let i = 0; i < 6; i++) {
+        const u = { userId: uid(), name, number: randNum(), isTest: true };
+        try { await SimServer.upsertUser(u); return u; } catch (e) { if (e.code !== 'TAG_TAKEN') throw e; }
+      }
+      throw new BackendError('TAG_TAKEN', 'Não foi possível gerar um identificador livre.');
+    },
+    async list() { return (await DB.all('sim_users')).filter(u => u.isTest).map(pub).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')); },
+    async reset() {
+      for (const n of ['sim_users', 'sim_requests', 'sim_messages', 'contacts', 'requests', 'messages']) await DB.clear(n);
+      if (Identity.profile) { Identity.profile.registered = false; await Settings.set('profile', Identity.profile); }
+    }
+  }
+};
+const Backend = {
+  mode: 'none',                                  // 'none' | 'sim' | (Fase 3) 'supabase'
+  current() { return this.mode === 'sim' ? SimServer : NoServer; },
+  get available() { return this.mode === 'sim'; }
+};
+
+/* 7.3 Gerenciador de conexão ------------------------------ */
+const Bluetooth = { supported: false, connected: false };   // Fase 4: plugin nativo Android
+const Connection = {
+  simOffline: false,
+  internet() { return navigator.onLine && !this.simOffline; },
+  channel() {
+    if (this.internet() && Backend.available) return 'online';   // 1. internet
+    if (Bluetooth.connected) return 'bluetooth';                    // 2. Bluetooth (Fase 4)
+    return 'none';                                                  // 3. fica pendente
+  },
+  describe() {
+    if (this.channel() === 'online') return { on: true, text: Backend.mode === 'sim' ? 'Conectado ao servidor de teste local' : 'Online' };
+    if (!Backend.available) return { on: false, text: 'Sem servidor central ainda: mensagens ficam pendentes neste aparelho' };
+    return { on: false, text: 'Sem internet: mensagens ficam pendentes e saem sozinhas quando a conexão voltar' };
+  }
+};
+window.addEventListener('online', () => { Bus.emit('conn'); Sync.soon(); });
+window.addEventListener('offline', () => Bus.emit('conn'));
+
+/* 7.4 Sincronização de mensagens, contatos e solicitações -- */
+const RANK = { pending: 0, failed: 0, sending: 1, sent: 2, delivered: 3, read: 4 };
+const Sync = {
+  busy: false, again: false, t: null, lastError: null, lastSync: null,
+  soon() { clearTimeout(this.t); this.t = setTimeout(() => this.run(), 120); },
+  async ensureRegistered() {
+    const me = Identity.profile; if (!me || me.registered) return;
+    for (let i = 0; i < 5; i++) {
+      try { await Backend.current().upsertUser(me); me.registered = true; await Settings.set('profile', me); return; }
+      catch (e) {
+        if (e.code !== 'TAG_TAKEN') throw e;
+        me.number = randNum(); await Settings.set('profile', me);
+        toast('Seu número já estava em uso e virou #' + me.number);
+      }
+    }
+  },
+  async run() {
+    if (this.busy) { this.again = true; return; }
+    const me = Identity.profile;
+    if (!me || Connection.channel() !== 'online') return;
+    this.busy = true;
+    const api = Backend.current();
+    try {
+      await this.ensureRegistered();
+      // 1. envia pendentes (também as que ficaram "enviando" se o app fechou no meio)
+      const out = (await DB.all('messages'))
+        .filter(m => m.from === me.userId && (m.status === 'pending' || m.status === 'sending'))
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      for (const m of out) {
+        if (Connection.channel() !== 'online') break;
+        await DB.put('messages', { ...m, status: 'sending', channel: 'online' }); Bus.emit('messages');
+        try {
+          const r = await api.sendMessage(m);
+          await DB.put('messages', { ...m, status: 'sent', channel: 'online', serverAt: r.serverAt });
+        } catch (e) {
+          if (e.code === 'NO_BACKEND' || e.code === 'NETWORK') { await DB.put('messages', { ...m, status: 'pending' }); break; }
+          await DB.put('messages', { ...m, status: 'failed', error: e.message });
+        }
+      }
+      // 2. confirma leituras feitas aqui enquanto estava sem conexão
+      const readPeers = new Set((await DB.all('messages')).filter(m => m.status === 'read' && m.from !== me.userId && m.readSynced === false).map(m => m.peer));
+      for (const peer of readPeers) {
+        await api.markRead(me.userId, peer);
+        for (const m of await DB.byIndex('messages', 'peer', peer)) if (m.readSynced === false) await DB.put('messages', { ...m, readSynced: true });
+      }
+      // 3. recebe novas mensagens e recibos (entregue / lida)
+      const { incoming, receipts } = await api.pull(me.userId);
+      for (const im of incoming)
+        if (!(await DB.get('messages', im.id)))
+          await DB.put('messages', { id: im.id, peer: im.from, from: im.from, to: im.to, body: im.body, createdAt: im.createdAt, status: 'received', channel: 'online' });
+      for (const r of receipts) {
+        const m = await DB.get('messages', r.id); if (!m) continue;
+        const st = r.readAt ? 'read' : r.deliveredAt ? 'delivered' : m.status;
+        if ((RANK[st] ?? 0) > (RANK[m.status] ?? 0)) await DB.put('messages', { ...m, status: st });
+      }
+      // 4. contatos e solicitações (cópia local para funcionar sem conexão)
+      const snap = await api.snapshot(me.userId);
+      await DB.clear('contacts'); for (const c of snap.contacts) await DB.put('contacts', { ...c, syncedAt: now() });
+      await DB.clear('requests'); for (const r of snap.requests) await DB.put('requests', r);
+      this.lastError = null; this.lastSync = now();
+    } catch (e) { console.error(e); this.lastError = e.message; }
+    finally {
+      this.busy = false; Bus.emit('sync');
+      if (this.again) { this.again = false; this.soon(); }
+    }
+  },
+  start() { setInterval(() => { if (document.visibilityState === 'visible') this.run(); }, 4000); this.run(); }
+};
+
+const Messenger = {
+  async send(peerId, body) {
+    const me = Identity.profile;
+    const m = { id: uid(), peer: peerId, from: me.userId, to: peerId, body, createdAt: now(), status: 'pending', channel: null };
+    await DB.put('messages', m); Bus.emit('messages'); Sync.soon(); return m;
+  },
+  async retry(id) {
+    const m = await DB.get('messages', id);
+    if (m && m.status === 'failed') { await DB.put('messages', { ...m, status: 'pending', error: null }); Bus.emit('messages'); Sync.soon(); }
+  },
+  async markConversationRead(peerId) {
+    let changed = false;
+    for (const m of await DB.byIndex('messages', 'peer', peerId))
+      if (m.from === peerId && m.status === 'received') { await DB.put('messages', { ...m, status: 'read', readSynced: false }); changed = true; }
+    if (changed) Sync.soon();
+  }
+};
+const STATUS_LABEL = { pending: 'Pendente', sending: 'Enviando', sent: 'Enviada', delivered: 'Entregue', read: 'Lida', failed: 'Falhou. Toque na mensagem para reenviar.', received: 'Recebida' };
+const STATUS_ICON = { pending: '🕓', sending: '↑', sent: '✓', delivered: '✓✓', read: '✓✓', failed: '!' };
+
+/* 7.5 Formulário de perfil (criação e edição) ------------- */
+const ProfileForm = {
+  mount(box, profile, onSaved) {
+    let photo = profile ? profile.photo || '' : '';
+    box.innerHTML = `<form id="pform" novalidate>
+      <div class="profile-head">
+        <button type="button" class="photo-btn" id="pickPhoto" aria-label="Escolher foto de perfil"><span id="pprev"></span><span class="cam" aria-hidden="true">📷</span></button>
+        <input type="file" id="photoIn" accept="image/*" hidden>
+        <button type="button" class="btn danger sm" id="rmPhoto" hidden>Remover foto</button>
+      </div>
+      <label class="field"><span>Nome</span><input name="name" maxlength="30" autocomplete="nickname" value="${esc(profile ? profile.name : '')}"></label>
+      <p class="hint">${profile ? `Seu identificador é formado pelo nome e pelo número #${esc(profile.number)}. Se mudar o nome, ele muda junto.` : 'Você vai receber um número de 4 dígitos. Nome + número formam seu identificador, por exemplo Gabriel #4821.'}</p>
+      <p class="err" id="perr" role="alert"></p>
+      <div class="actions"><button class="btn primary grow" type="submit">${profile ? 'Salvar alterações' : 'Criar perfil'}</button></div>
+    </form>`;
+    const nameIn = box.querySelector('[name=name]');
+    const preview = () => {
+      box.querySelector('#pprev').innerHTML = avatar({ ...(profile || {}), name: nameIn.value.trim() || '?', photo }, 'lg');
+      box.querySelector('#rmPhoto').hidden = !photo;
+    };
+    preview();
+    if (!profile) setTimeout(() => nameIn.focus(), 60);
+    nameIn.addEventListener('input', () => { if (!photo) preview(); });
+    box.querySelector('#pickPhoto').onclick = () => box.querySelector('#photoIn').click();
+    box.querySelector('#photoIn').onchange = async e => {
+      try { photo = await readPhoto(e.target.files[0]); preview(); } catch (x) { box.querySelector('#perr').textContent = x.message; }
+      e.target.value = '';
+    };
+    box.querySelector('#rmPhoto').onclick = () => { photo = ''; preview(); };
+    box.querySelector('#pform').addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = nameIn.value.trim().replace(/\s+/g, ' '), bad = validName(name);
+      if (bad) { box.querySelector('#perr').textContent = bad; return; }
+      try {
+        const p = profile ? await Identity.update({ name, photo }) : await Identity.create(name, photo);
+        onSaved(p);
+      } catch (x) { box.querySelector('#perr').textContent = 'Não foi possível salvar: ' + x.message; }
+    });
+  }
+};
+const ProfileScreen = {
+  id: 'profile', name: 'Meu perfil',
+  mount(view) {
+    const p = Identity.profile;
+    Topbar.setTitle(p ? 'Meu perfil' : 'Criar perfil');
+    view.innerHTML = `<div class="pad"><div id="pf"></div>
+      ${p ? `<section class="panel"><h2>Seu identificador</h2>
+        <p style="margin:8px 0 10px;font-size:1.25rem;font-weight:600">${esc(Identity.tagOf(p))}</p>
+        <p class="muted small" style="margin:0 0 12px">Envie para quem quiser te adicionar. A garantia de que ele é único entre todos os usuários vem do servidor central. ${tag('backend')}</p>
+        <button class="btn" id="copyTag" style="width:100%">Copiar identificador</button></section>` : ''}</div>`;
+    ProfileForm.mount($('#pf'), p, () => { toast(p ? 'Perfil atualizado' : 'Perfil criado'); route(); });
+    const c = $('#copyTag');
+    if (c) c.onclick = async () => {
+      try { await navigator.clipboard.writeText(Identity.tagOf(Identity.profile)); toast('Identificador copiado'); }
+      catch (e) { toast('Não foi possível copiar. Selecione o texto acima.'); }
+    };
+  }
+};
+
+/* 7.6 Módulo Mensagens ------------------------------------ */
+Platform.register({
+  id: 'messages', name: 'Mensagens', icon: '💬', colorVar: '--c-msg',
+  off: [],
+  listen(ev, fn) { this.off.push(Bus.on(ev, fn)); },
+  unmount() { this.off.forEach(f => f()); this.off = []; },
+  async mount(view, params) {
+    if (!Identity.profile) return this.onboarding(view);
+    const sub = params[0] || 'conversas';
+    if (sub === 'chat' && params[1]) return this.chat(view, params[1]);
+    if (sub === 'teste') return this.testPanel(view);
+    return this.lists(view, ['conversas', 'contatos', 'pedidos'].includes(sub) ? sub : 'conversas');
+  },
+
+  onboarding(view) {
+    Topbar.back = '#/';
+    view.innerHTML = `<div class="pad"><div class="notice"><h2>Crie seu perfil para usar Mensagens</h2>
+      <p>Ele identifica você para outras pessoas. Fica salvo neste aparelho agora e vai para o servidor central quando ele existir.</p></div>
+      <div id="pf" style="margin-top:12px"></div></div>`;
+    ProfileForm.mount($('#pf'), null, () => { toast('Perfil criado'); route(); });
+  },
+
+  async lists(view, tab) {
+    Topbar.back = '#/';
+    Topbar.actions(`${Backend.mode === 'sim' ? '<a class="text-btn" href="#/messages/teste" style="display:inline-flex;align-items:center;text-decoration:none;color:var(--ink)">Teste</a>' : ''}
+      <a href="#/profile" aria-label="Meu perfil" style="margin-left:6px;display:block;border-radius:50%">${avatar(Identity.profile, 'sm')}</a>`);
+    view.innerHTML = `<div id="ml"><nav class="tabs" aria-label="Seções">
+        <a href="#" data-t="conversas">Conversas</a><a href="#" data-t="contatos">Contatos</a>
+        <a href="#" data-t="pedidos">Pedidos <span class="count" id="reqCount" hidden></span></a></nav>
+      <div class="pad" style="padding-top:0"><div class="conn" id="conn"></div><div id="tabBody"></div></div></div>`;
+    const root = $('#ml');
+    const render = async () => {
+      if (!document.body.contains(root)) return;
+      const me = Identity.profile;
+      root.querySelectorAll('.tabs a').forEach(a => a.setAttribute('aria-current', a.dataset.t === tab ? 'page' : 'false'));
+      const reqs = await DB.all('requests');
+      const nIn = reqs.filter(r => r.toId === me.userId && r.status === 'pending').length;
+      const rc = $('#reqCount'); rc.hidden = !nIn; rc.textContent = nIn;
+      const d = Connection.describe(), c = $('#conn'); c.className = 'conn' + (d.on ? ' on' : ''); c.innerHTML = `<i></i><span>${esc(d.text)}</span>`;
+      $('#tabBody').innerHTML = tab === 'conversas' ? await this.renderConversations(me)
+        : tab === 'contatos' ? await this.renderContacts() : this.renderRequests(reqs, me);
+    };
+    root.addEventListener('click', async e => {
+      const t = e.target.closest('[data-t]');
+      if (t) { e.preventDefault(); tab = t.dataset.t; history.replaceState(null, '', '#/messages/' + tab); render(); return; }
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      const act = b.dataset.act, me = Identity.profile;
+      if (act === 'add') return this.addContactSheet();
+      if (Connection.channel() !== 'online') return toast(Backend.available ? 'Sem internet. Tente quando a conexão voltar.' : OFFLINE_MSG);
+      b.disabled = true;
+      try {
+        await Sync.ensureRegistered();
+        if (act === 'accept' || act === 'decline') { await Backend.current().respond(b.dataset.id, me.userId, act === 'accept'); toast(act === 'accept' ? 'Contato adicionado' : 'Solicitação recusada'); }
+        if (act === 'cancel') { await Backend.current().cancel(b.dataset.id, me.userId); toast('Solicitação cancelada'); }
+        Sync.soon();
+      } catch (x) { toast(x.message); b.disabled = false; }
+    });
+    this.listen('sync', render); this.listen('conn', render); this.listen('messages', render);
+    await render();
+  },
+
+  async renderConversations(me) {
+    const [msgs, contacts] = await Promise.all([DB.all('messages'), DB.all('contacts')]);
+    const cmap = new Map(contacts.map(c => [c.id, c]));
+    const convs = new Map();
+    for (const m of msgs) {
+      const c = convs.get(m.peer) || { peer: m.peer, last: null, unread: 0 };
+      if (!c.last || m.createdAt > c.last.createdAt) c.last = m;
+      if (m.from === m.peer && m.status === 'received') c.unread++;
+      convs.set(m.peer, c);
+    }
+    const list = [...convs.values()].sort((a, b) => b.last.createdAt.localeCompare(a.last.createdAt));
+    if (!list.length) return `<div class="empty"><p>Nenhuma conversa ainda.</p><p>${contacts.length ? 'Abra um contato para começar.' : 'Adicione um contato pelo identificador, como Ana #1234.'}</p></div>`;
+    return list.map(c => {
+      const p = cmap.get(c.peer) || { id: c.peer, name: 'Ex-contato' };
+      const mine = c.last.from === me.userId;
+      return `<a class="row-item" href="#/messages/chat/${encodeURIComponent(c.peer)}">${avatar(p)}
+        <span class="info"><b>${esc(p.name)}</b><small>${mine ? (STATUS_ICON[c.last.status] || '') + ' ' : ''}${esc(c.last.body)}</small></span>
+        <span class="side"><span>${shortTime(c.last.createdAt)}</span>${c.unread ? `<span class="count">${c.unread}</span>` : ''}</span></a>`;
+    }).join('');
+  },
+
+  async renderContacts() {
+    const cs = (await DB.all('contacts')).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    return `<button class="btn primary" data-act="add" style="width:100%;margin-bottom:6px">Adicionar contato</button>` + (cs.length
+      ? cs.map(c => `<a class="row-item" href="#/messages/chat/${encodeURIComponent(c.id)}">${avatar(c)}
+          <span class="info"><b>${esc(c.name)}</b><small class="handle">#${esc(c.number)}</small></span>${c.isTest ? tag('proto') : ''}</a>`).join('')
+      : '<div class="empty"><p>Nenhum contato.</p><p>Peça o identificador da pessoa (ex.: Ana #1234) e envie uma solicitação.</p></div>');
+  },
+
+  renderRequests(reqs, me) {
+    const other = r => (r.fromId === me.userId ? r.to : r.from) || { name: '?', number: '' };
+    const row = (r, side) => { const p = other(r);
+      return `<div class="row-item">${avatar(p)}<span class="info"><b>${esc(p.name)} <span class="handle">#${esc(p.number)}</span></b><small>${fmtWhen(r.createdAt)}</small></span><span class="btn-row">${side}</span></div>`; };
+    const inc = reqs.filter(r => r.toId === me.userId && r.status === 'pending');
+    const out = reqs.filter(r => r.fromId === me.userId && (r.status === 'pending' || r.status === 'declined'));
+    return `<h3 class="sec" style="margin-top:4px">Recebidas</h3>` +
+      (inc.length ? inc.map(r => row(r, `<button class="btn sm" data-act="decline" data-id="${esc(r.id)}">Recusar</button><button class="btn sm primary" data-act="accept" data-id="${esc(r.id)}">Aceitar</button>`)).join('')
+        : '<p class="muted">Nenhuma solicitação recebida.</p>') +
+      `<h3 class="sec">Enviadas</h3>` +
+      (out.length ? out.map(r => row(r, r.status === 'pending' ? `<button class="btn sm" data-act="cancel" data-id="${esc(r.id)}">Cancelar</button>` : '<span class="muted small">Recusada</span>')).join('')
+        : '<p class="muted">Nenhuma solicitação enviada aguardando.</p>');
+  },
+
+  addContactSheet() {
+    const me = Identity.profile;
+    const el = Sheet.open(`<form id="addf" novalidate><h2>Adicionar contato</h2>
+      <label class="field"><span>Identificador da pessoa</span><input name="tag" placeholder="Ana #1234" autocomplete="off" autofocus></label>
+      <p class="hint">O seu é <b>${esc(Identity.tagOf(me))}</b>. Envie para quem quiser te adicionar.</p>
+      <div id="addres"></div><p class="err" id="adderr" role="alert"></p>
+      <div class="actions"><button type="button" class="btn grow" id="addclose">Fechar</button><button class="btn primary grow" type="submit">Procurar</button></div></form>`);
+    const err = m => { el.querySelector('#adderr').textContent = m; };
+    el.querySelector('#addclose').onclick = () => Sheet.close();
+    el.querySelector('#addf').addEventListener('submit', async e => {
+      e.preventDefault(); err(''); el.querySelector('#addres').innerHTML = '';
+      const t = parseTag(new FormData(e.target).get('tag'));
+      if (!t) return err('Use o formato Nome #1234.');
+      if (!Backend.available) return err(OFFLINE_MSG);
+      if (!Connection.internet()) return err('Sem internet. A busca precisa de conexão.');
+      try {
+        await Sync.ensureRegistered();
+        const u = await Backend.current().findByTag(t.name, t.number);
+        if (!u) return err('Ninguém encontrado com esse identificador. Confira o nome e os 4 números.');
+        if (u.id === me.userId) return err('Esse é o seu próprio identificador.');
+        const res = el.querySelector('#addres');
+        res.innerHTML = `<div class="row-item">${avatar(u)}<span class="info"><b>${esc(u.name)}</b><small class="handle">#${esc(u.number)}</small></span>
+          <button type="button" class="btn sm primary" id="sendReq">Enviar solicitação</button></div>`;
+        res.querySelector('#sendReq').onclick = async ev => {
+          ev.target.disabled = true;
+          try { await Backend.current().sendRequest(me.userId, u.id); toast('Solicitação enviada'); Sheet.close(); Sync.soon(); }
+          catch (x) { err(x.message); ev.target.disabled = false; }
+        };
+      } catch (x) { err(x.message); }
+    });
+  },
+
+  async chat(view, peerId) {
+    const me = Identity.profile;
+    const contact = await DB.get('contacts', peerId);
+    if (!contact && !(await DB.byIndex('messages', 'peer', peerId)).length) { toast('Contato não encontrado.'); location.hash = '#/messages/contatos'; return; }
+    Topbar.setTitle(contact ? contact.name : 'Ex-contato'); Topbar.back = '#/messages';
+    view.innerHTML = `<div class="chat">
+      <div class="pad" style="padding-bottom:0"><div class="conn" id="conn"></div></div>
+      <div class="chat-log" id="log"></div>
+      <form class="composer" id="comp">
+        <textarea id="msg" rows="1" maxlength="4000" aria-label="Mensagem" placeholder="${contact ? 'Mensagem' : 'Vocês não são mais contatos'}" ${contact ? '' : 'disabled'}></textarea>
+        <button class="send" id="sendBtn" aria-label="Enviar" disabled>➤</button>
+      </form></div>`;
+    let count = -1;
+    const render = async () => {
+      const log = $('#log'); if (!log) return;
+      const d = Connection.describe(), c = $('#conn'); c.className = 'conn' + (d.on ? ' on' : ''); c.innerHTML = `<i></i><span>${esc(d.text)}</span>`;
+      const msgs = (await DB.byIndex('messages', 'peer', peerId)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      let html = '', lastDay = '';
+      for (const m of msgs) {
+        const t = new Date(m.createdAt), day = ymd(t);
+        if (day !== lastDay) { html += `<div class="day-sep">${dayLabel(day)}</div>`; lastDay = day; }
+        const mine = m.from === me.userId, hm = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
+        const st = mine ? `<span class="tick" title="${STATUS_LABEL[m.status]}" aria-label="${STATUS_LABEL[m.status]}">${STATUS_ICON[m.status] || ''}</span>` : '';
+        html += `<div class="bubble${mine ? ' me' : ''}"${mine && m.status === 'failed' ? ` data-retry="${esc(m.id)}" role="button" tabindex="0"` : ''}>${esc(m.body)}<div class="st ${m.status}">${hm}${st}</div></div>`;
+        if (mine && m.status === 'failed') html += `<small class="fail-note">${STATUS_LABEL.failed}${m.error ? ' (' + esc(m.error) + ')' : ''}</small>`;
+      }
+      log.innerHTML = html || '<div class="empty"><p>Nenhuma mensagem ainda.</p><p>Escreva abaixo para começar.</p></div>';
+      if (msgs.length !== count) { count = msgs.length; window.scrollTo(0, document.documentElement.scrollHeight); }
+      if (msgs.some(m => m.from === peerId && m.status === 'received')) await Messenger.markConversationRead(peerId);
+    };
+    const ta = $('#msg'), btn = $('#sendBtn');
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; btn.disabled = !ta.value.trim() || !contact; };
+    ta.addEventListener('input', grow);
+    ta.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && matchMedia('(pointer: fine)').matches) { e.preventDefault(); if (!btn.disabled) $('#comp').requestSubmit(); }
+    });
+    $('#comp').addEventListener('submit', async e => {
+      e.preventDefault();
+      const body = ta.value.trim(); if (!body || !contact) return;
+      ta.value = ''; grow();
+      await Messenger.send(peerId, body); ta.focus();
+    });
+    $('#log').addEventListener('click', e => { const b = e.target.closest('[data-retry]'); if (b) Messenger.retry(b.dataset.retry); });
+    $('#log').addEventListener('keydown', e => { const b = e.target.closest('[data-retry]'); if (b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); Messenger.retry(b.dataset.retry); } });
+    this.listen('sync', render); this.listen('messages', render); this.listen('conn', render);
+    await render();
+  },
+
+  /* Painel de teste [PROTÓTIPO]: age "como" outras pessoas */
+  async testPanel(view) {
+    Topbar.setTitle('Painel de teste'); Topbar.back = '#/messages';
+    if (Backend.mode !== 'sim') { view.innerHTML = '<div class="empty"><p>O modo de teste está desligado.</p><p>Ligue em Status do sistema.</p></div>'; return; }
+    const me = Identity.profile;
+    view.innerHTML = '<div class="pad" id="tp"></div>';
+    const tp = $('#tp');
+    const render = async () => {
+      const users = await SimServer.test.list();
+      const [rs, ms] = await Promise.all([DB.all('sim_requests'), DB.all('sim_messages')]);
+      tp.innerHTML = `<div class="sim-banner">Simulador ${tag('proto')} Os usuários abaixo existem só neste aparelho, para você testar os fluxos sem servidor. Nada sai para a internet.</div>
+        <section class="panel" style="margin-top:0"><div class="switch-row"><span>Simular sem internet no seu aparelho</span>
+          <button class="switch" role="switch" data-t="offline" aria-checked="${Connection.simOffline}" aria-label="Simular sem internet"></button></div>
+          <p class="muted small" style="margin:0">Ligado, suas mensagens ficam pendentes. Ao desligar, elas saem sozinhas, sem duplicar.</p></section>
+        <form class="inline-form" id="newTest"><input name="name" placeholder="Nome de um usuário de teste" maxlength="30"><button class="btn sm primary">Criar</button></form>
+        <h3 class="sec">Usuários de teste</h3>
+        ${users.length ? users.map(u => {
+          const toMe = rs.find(r => r.fromId === u.id && r.toId === me.userId && r.status === 'pending');
+          const fromMe = rs.find(r => r.fromId === me.userId && r.toId === u.id && r.status === 'pending');
+          const isContact = rs.some(r => r.status === 'accepted' && ((r.fromId === u.id && r.toId === me.userId) || (r.toId === u.id && r.fromId === me.userId)));
+          const waiting = ms.filter(m => m.to === u.id && !m.deliveredAt).length;
+          const unread = ms.filter(m => m.to === u.id && m.deliveredAt && !m.readAt).length;
+          const state = isContact ? 'É seu contato' : fromMe ? 'Recebeu sua solicitação' : toMe ? 'Pediu para te adicionar' : 'Ainda não conectado';
+          return `<div class="test-user"><div style="display:flex;gap:12px;align-items:center">${avatar(u)}
+            <div class="grow"><b>${esc(u.name)}</b> <span class="handle">#${esc(u.number)}</span><br>
+            <small class="muted">${state}${waiting ? `, com ${waiting} mensagem(ns) guardada(s) no servidor` : ''}</small></div></div>
+            <div class="btn-row">
+              ${fromMe ? `<button class="btn sm primary" data-t="accept" data-id="${esc(fromMe.id)}" data-u="${esc(u.id)}">Aceitar como ${esc(u.name)}</button><button class="btn sm" data-t="decline" data-id="${esc(fromMe.id)}" data-u="${esc(u.id)}">Recusar</button>` : ''}
+              ${!isContact && !fromMe && !toMe ? `<button class="btn sm" data-t="request" data-u="${esc(u.id)}">Enviar solicitação para mim</button>` : ''}
+              ${waiting ? `<button class="btn sm" data-t="online" data-u="${esc(u.id)}">Ficar online e receber</button>` : ''}
+              ${unread ? `<button class="btn sm" data-t="read" data-u="${esc(u.id)}">Ler suas mensagens</button>` : ''}
+            </div>
+            ${isContact ? `<form class="inline-form" data-reply="${esc(u.id)}"><input name="body" placeholder="Responder como ${esc(u.name)}" maxlength="500"><button class="btn sm">Enviar</button></form>` : ''}
+          </div>`;
+        }).join('') : '<p class="muted">Crie um usuário de teste para simular outra pessoa.</p>'}
+        <button class="btn danger" data-t="reset" style="width:100%;margin-top:12px">Apagar todos os dados de teste</button>`;
+    };
+    tp.addEventListener('click', async e => {
+      const b = e.target.closest('button[data-t]'); if (!b) return;
+      const t = b.dataset.t, u = b.dataset.u;
+      try {
+        if (t === 'offline') { Connection.simOffline = !Connection.simOffline; Bus.emit('conn'); }
+        else if (t === 'accept' || t === 'decline') await SimServer.respond(b.dataset.id, u, t === 'accept');
+        else if (t === 'request') { await Sync.ensureRegistered(); await SimServer.sendRequest(u, me.userId); toast('Solicitação criada. Veja em Mensagens, Pedidos.'); }
+        else if (t === 'online') await SimServer.pull(u);
+        else if (t === 'read') await SimServer.markRead(u, me.userId);
+        else if (t === 'reset') {
+          if (!(await confirmSheet('Apagar dados de teste?', 'Remove usuários de teste, contatos, solicitações e mensagens. Notas e calendário não são afetados.'))) return;
+          await SimServer.test.reset(); toast('Dados de teste apagados');
+        }
+        else return;
+        Sync.soon(); await render();
+      } catch (x) { toast(x.message); }
+    });
+    tp.addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target, val = String(new FormData(f).get(f.id === 'newTest' ? 'name' : 'body') || '').trim().replace(/\s+/g, ' ');
+      try {
+        if (f.id === 'newTest') {
+          const bad = validName(val); if (bad) return toast(bad);
+          const u = await SimServer.test.create(val); toast(`${u.name} #${u.number} criado`);
+        } else if (f.dataset.reply) {
+          if (!val) return;
+          await SimServer.sendMessage({ id: uid(), from: f.dataset.reply, to: me.userId, body: val, createdAt: now() });
+          toast('Mensagem enviada ao servidor de teste');
+        }
+        Sync.soon(); await render();
+      } catch (x) { toast(x.message); }
+    });
+    await render();
+  }
+});
+
+/* =========================================================
+   8. MÓDULO NOTAS
+   ========================================================= */
+Platform.register({
+  id: 'notes', name: 'Notas', icon: '📝', colorVar: '--c-notes',
+  state: { q: '', filter: 'all' }, flush: null, cleanup: null,
+  async mount(view, params) { return params[0] ? this.editor(view, params[0]) : this.list(view); },
+
+  async list(view) {
+    view.innerHTML = `<div class="pad">
+      <input class="search" type="search" id="nq" placeholder="Pesquisar notas" aria-label="Pesquisar notas" value="${esc(this.state.q)}">
+      <div class="chips" id="chips" role="toolbar" aria-label="Filtrar notas"></div>
+      <div id="nlist"></div></div>
+      <div class="fab-wrap"><a class="fab" href="#/notes/nova" style="--fab:var(--c-notes)">+ Nova nota</a></div>`;
+    const notes = (await Notes.list()).sort((a, b) => (!!b.favorite - !!a.favorite) || b.updatedAt.localeCompare(a.updatedAt));
+    const cats = [...new Set(notes.map(n => n.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    if (this.state.filter.startsWith('cat:') && !cats.includes(this.state.filter.slice(4))) this.state.filter = 'all';
+    const renderChips = () => {
+      const items = [['all', 'Todas'], ['fav', 'Favoritas'], ...cats.map(c => ['cat:' + c, c])];
+      $('#chips').innerHTML = items.map(([k, l]) => `<button class="chip" data-k="${esc(k)}" aria-pressed="${this.state.filter === k}">${esc(l)}</button>`).join('');
+    };
+    const renderList = () => {
+      const q = norm(this.state.q), f = this.state.filter;
+      const out = notes.filter(n =>
+        (f === 'all' || (f === 'fav' && n.favorite) || (f.startsWith('cat:') && n.category === f.slice(4))) &&
+        (!q || norm(`${n.title} ${n.body} ${n.category || ''}`).includes(q)));
+      $('#nlist').innerHTML = out.length
+        ? out.map(n => `<a class="card" href="#/notes/${encodeURIComponent(n.id)}">
+            <h3>${n.favorite ? '<span class="star" aria-label="Favorita">★</span> ' : ''}${esc(n.title || 'Sem título')}</h3>
+            ${n.body ? `<p>${esc(n.body.slice(0, 300))}</p>` : ''}
+            <div class="meta"><span>${fmtWhen(n.updatedAt)}</span>${n.category ? `<span class="cat">${esc(n.category)}</span>` : ''}</div></a>`).join('')
+        : notes.length
+          ? '<div class="empty"><p>Nenhuma nota encontrada.</p><p>Tente outra palavra ou volte para “Todas”.</p></div>'
+          : '<div class="empty"><p>Nenhuma nota ainda.</p><p>Toque em “Nova nota” para escrever a primeira.</p></div>';
+    };
+    renderChips(); renderList();
+    $('#nq').addEventListener('input', e => { this.state.q = e.target.value; renderList(); });
+    $('#chips').addEventListener('click', e => {
+      const b = e.target.closest('.chip'); if (!b) return;
+      this.state.filter = b.dataset.k; renderChips(); renderList();
+    });
+  },
+
+  async editor(view, id) {
+    let note = id === 'nova' ? null : await Notes.get(id);
+    if (id !== 'nova' && !note) { toast('Esta nota não existe mais.'); location.hash = '#/notes'; return; }
+    Topbar.setTitle(note ? 'Editar nota' : 'Nova nota');
+    view.innerHTML = `<div class="editor">
+      <input class="ed-title" id="et" placeholder="Título" aria-label="Título" maxlength="200" value="${esc(note ? note.title : '')}" ${note ? '' : 'autofocus'}>
+      <div class="ed-bar">
+        <input class="ed-cat" id="ec" list="catlist" placeholder="Categoria" aria-label="Categoria" maxlength="40" value="${esc(note ? note.category || '' : '')}">
+        <datalist id="catlist"></datalist>
+        <span id="es" class="muted" aria-live="polite">${note ? 'Salvo · ' + fmtWhen(note.updatedAt).toLowerCase() : 'Salva sozinha enquanto você escreve'}</span>
+      </div>
+      <textarea id="eb" placeholder="Escreva aqui…" aria-label="Conteúdo da nota">${esc(note ? note.body : '')}</textarea>
+    </div>`;
+    if (!note) setTimeout(() => $('#et') && $('#et').focus(), 50);
+    const cats = [...new Set((await Notes.list()).map(n => n.category).filter(Boolean))];
+    $('#catlist').innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
+
+    let fav = !!(note && note.favorite), dirty = false, saving = Promise.resolve();
+    const status = $('#es');
+    const save = async () => {
+      if (!dirty) return;
+      dirty = false;
+      const title = $('#et').value.trim(), body = $('#eb').value, category = $('#ec').value.trim();
+      if (!note && !title && !body.trim()) return;           // não cria nota vazia
+      try {
+        note = await Notes.save({ ...(note || {}), title, body, category, favorite: fav });
+        if (id === 'nova') { id = note.id; history.replaceState(null, '', '#/notes/' + encodeURIComponent(id)); Topbar.setTitle('Editar nota'); }
+        status.textContent = 'Salvo · ' + fmtWhen(note.updatedAt).toLowerCase();
+      } catch (e) {
+        console.error(e); dirty = true;
+        status.textContent = 'Erro ao salvar. O texto continua aqui; tente de novo.';
+      }
+    };
+    const queueSave = () => (saving = saving.then(save));
+    const later = debounce(queueSave, 500);
+    const onInput = () => { dirty = true; status.textContent = 'Editando…'; later(); };
+    ['#et', '#eb', '#ec'].forEach(s => $(s).addEventListener('input', onInput));
+
+    const renderActions = () => {
+      const a = Topbar.actions(`
+        <button class="icon-btn" id="favBtn" aria-pressed="${fav}" aria-label="${fav ? 'Remover dos favoritos' : 'Favoritar'}">${fav ? '★' : '☆'}</button>
+        <button class="icon-btn" id="delBtn" aria-label="Excluir nota">${ICON.trash}</button>`);
+      a.querySelector('#favBtn').onclick = () => { fav = !fav; dirty = true; queueSave(); renderActions(); };
+      a.querySelector('#delBtn').onclick = async () => {
+        await saving;
+        if (!note) { dirty = false; location.hash = '#/notes'; return; }
+        if (!(await confirmSheet('Excluir esta nota?', 'Ela será removida deste aparelho.'))) return;
+        dirty = false;
+        await Notes.remove(note.id);
+        this.flush = null;
+        toast('Nota excluída');
+        location.hash = '#/notes';
+      };
+    };
+    renderActions();
+
+    const onHide = () => { if (document.visibilityState === 'hidden') queueSave(); };
+    document.addEventListener('visibilitychange', onHide);
+    this.flush = () => queueSave();
+    this.cleanup = () => document.removeEventListener('visibilitychange', onHide);
+  },
+
+  async unmount() {
+    if (this.flush) { await this.flush(); this.flush = null; }
+    if (this.cleanup) { this.cleanup(); this.cleanup = null; }
+  }
+});
+
+/* =========================================================
+   9. MÓDULO CALCULADORA (sem eval, com precedência)
+   ========================================================= */
+Platform.register({
+  id: 'calc', name: 'Calculadora', icon: '🧮', colorVar: '--c-calc', cleanup: null,
+  mount(view) {
+    const OPS = ['+', '−', '×', '÷'];
+    const isOp = t => OPS.includes(t);
+    let expr = [], done = false, lastExprText = '';
+    const KEYS = [
+      ['C', 'fn', 'clear', 'Limpar'], ['⌫', 'fn', 'back', 'Apagar'], ['%', 'fn', 'pct', 'Porcentagem'], ['÷', 'op', 'op:÷', 'Dividir'],
+      ['7', '', 'd:7'], ['8', '', 'd:8'], ['9', '', 'd:9'], ['×', 'op', 'op:×', 'Multiplicar'],
+      ['4', '', 'd:4'], ['5', '', 'd:5'], ['6', '', 'd:6'], ['−', 'op', 'op:−', 'Subtrair'],
+      ['1', '', 'd:1'], ['2', '', 'd:2'], ['3', '', 'd:3'], ['+', 'op', 'op:+', 'Somar'],
+      ['±', 'fn', 'neg', 'Inverter sinal'], ['0', '', 'd:0'], [',', '', 'dot', 'Vírgula'], ['=', 'eq', 'eq', 'Resultado']
+    ];
+    view.innerHTML = `<div class="calc">
+      <div class="display">
+        <div class="prev-expr muted" id="cpe"></div>
+        <output class="expr" id="cx" aria-live="polite">0</output>
+        <div class="preview" id="cp"></div>
+      </div>
+      <div class="keys" id="keys">${KEYS.map(([l, c, a, aria]) =>
+        `<button class="key ${c}" data-a="${a}" ${aria ? `aria-label="${aria}"` : ''}>${l}</button>`).join('')}</div>
+    </div>`;
+
+    const lastTok = () => expr[expr.length - 1];
+    const toStr = v => String(Object.is(v, -0) ? 0 : v);
+    const fmtNum = s => {
+      if (s === undefined) return '';
+      if (/e/i.test(s)) return s.replace('.', ',');
+      const neg = s.startsWith('-'); if (neg) s = s.slice(1);
+      let [i, d] = s.split('.');
+      i = i.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      return (neg ? '−' : '') + i + (d !== undefined ? ',' + d : '');
+    };
+    const exprText = toks => toks.map(t => isOp(t) ? ` ${t} ` : fmtNum(t)).join('');
+    function evaluate(toks) {
+      const t = [...toks]; while (t.length && isOp(t[t.length - 1])) t.pop();
+      if (!t.length) return 0;
+      const s = [parseFloat(t[0])];
+      for (let i = 1; i < t.length; i += 2) {            // 1º: × e ÷
+        const op = t[i], n = parseFloat(t[i + 1]);
+        if (op === '×') s[s.length - 1] *= n;
+        else if (op === '÷') { if (n === 0) throw new Error('Não é possível dividir por zero'); s[s.length - 1] /= n; }
+        else s.push(op, n);
+      }
+      let r = s[0];                                      // 2º: + e −
+      for (let i = 1; i < s.length; i += 2) r = s[i] === '+' ? r + s[i + 1] : r - s[i + 1];
+      if (!isFinite(r)) throw new Error('Resultado fora do limite');
+      return parseFloat(r.toPrecision(12));              // corrige 0,1 + 0,2
+    }
+    const render = err => {
+      const x = $('#cx'), p = $('#cp');
+      if (err) { x.textContent = 'Erro'; p.textContent = err; $('#cpe').textContent = ''; return; }
+      x.textContent = expr.length ? exprText(expr) : '0';
+      let prev = '';
+      if (!done && expr.some(isOp)) { try { prev = '= ' + fmtNum(toStr(evaluate(expr))); } catch (e) { prev = ''; } }
+      p.textContent = prev;
+      $('#cpe').textContent = done && lastExprText ? lastExprText + ' =' : '';
+      x.style.fontSize = x.textContent.length > 16 ? 'clamp(1.4rem,7vw,2rem)' : '';
+    };
+    const act = a => {
+      if (a.startsWith('d:')) {
+        const d = a.slice(2);
+        if (done) { expr = []; done = false; }
+        const l = lastTok();
+        if (l !== undefined && !isOp(l)) {
+          if (l.replace(/[-.]/g, '').length >= 15) return;
+          expr[expr.length - 1] = l === '0' ? d : l === '-0' ? '-' + d : l + d;
+        } else expr.push(d);
+      } else if (a === 'dot') {
+        if (done) { expr = []; done = false; }
+        const l = lastTok();
+        if (l !== undefined && !isOp(l)) { if (!l.includes('.')) expr[expr.length - 1] = l + '.'; }
+        else expr.push('0.');
+      } else if (a.startsWith('op:')) {
+        const op = a.slice(3);
+        done = false;                                    // continua a partir do resultado
+        if (!expr.length) expr.push('0');
+        const l = lastTok();
+        if (isOp(l)) expr[expr.length - 1] = op;
+        else { if (l.endsWith('.')) expr[expr.length - 1] = l.slice(0, -1); expr.push(op); }
+      } else if (a === 'pct') {
+        const l = lastTok(); if (l === undefined || isOp(l)) return;
+        done = false;
+        const n = parseFloat(l), op = expr[expr.length - 2];
+        // 200 + 10% = 220  |  200 × 10% = 20
+        const v = (op === '+' || op === '−') ? evaluate(expr.slice(0, -2)) * n / 100 : n / 100;
+        expr[expr.length - 1] = toStr(parseFloat(v.toPrecision(12)));
+      } else if (a === 'neg') {
+        const l = lastTok(); if (l === undefined || isOp(l)) return;
+        done = false;
+        expr[expr.length - 1] = l.startsWith('-') ? l.slice(1) : '-' + l;
+      } else if (a === 'back') {
+        if (done) { expr = []; done = false; }
+        else {
+          const l = lastTok();
+          if (l === undefined) return;
+          if (isOp(l) || l.length <= 1 || (l.length === 2 && l.startsWith('-'))) expr.pop();
+          else expr[expr.length - 1] = l.slice(0, -1);
+        }
+      } else if (a === 'clear') { expr = []; done = false; lastExprText = ''; }
+      else if (a === 'eq') {
+        while (expr.length && isOp(lastTok())) expr.pop();
+        if (!expr.some(isOp)) { render(); return; }
+        const v = evaluate(expr), text = exprText(expr), res = toStr(v);
+        lastExprText = text; expr = [res]; done = true;
+        DB.put('calcHistory', { id: uid(), expr: text, result: res, createdAt: now() }).catch(console.error);
+      }
+      render();
+    };
+    const run = a => { try { act(a); } catch (e) { expr = []; done = false; render(e.message); } };
+    $('#keys').addEventListener('click', e => { const b = e.target.closest('[data-a]'); if (b) run(b.dataset.a); });
+
+    const keymap = { '+': 'op:+', '-': 'op:−', '*': 'op:×', 'x': 'op:×', '/': 'op:÷', 'Enter': 'eq', '=': 'eq',
+                     'Backspace': 'back', 'Delete': 'clear', '%': 'pct', ',': 'dot', '.': 'dot' };
+    const onKey = e => {
+      if (!$('#sheet').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+      const a = /^\d$/.test(e.key) ? 'd:' + e.key : keymap[e.key];
+      if (!a) return; e.preventDefault(); run(a);
+    };
+    document.addEventListener('keydown', onKey);
+    this.cleanup = () => document.removeEventListener('keydown', onKey);
+
+    const showHistory = async () => {
+      const items = (await DB.all('calcHistory')).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 50);
+      const el = Sheet.open(`<h2>Histórico</h2>${items.length
+        ? `<ul class="hist">${items.map(h => `<li><button data-r="${esc(h.result)}"><span class="muted">${esc(h.expr)} =</span><b>${esc(fmtNum(h.result))}</b></button></li>`).join('')}</ul>
+           <div class="actions"><button class="btn danger grow" id="hclear">Limpar histórico</button></div>`
+        : '<p class="muted">Os cálculos que você fizer aparecem aqui. Toque em um para reutilizar o resultado.</p>'}`);
+      const list = el.querySelector('.hist');
+      if (list) list.addEventListener('click', e => {
+        const b = e.target.closest('[data-r]'); if (!b) return;
+        expr = [b.dataset.r]; done = true; lastExprText = ''; render(); Sheet.close();
+      });
+      const clr = el.querySelector('#hclear');
+      if (clr) clr.onclick = async () => { await DB.clear('calcHistory'); Sheet.close(); toast('Histórico limpo'); };
+    };
+    Topbar.actions(`<button class="icon-btn" id="histBtn" aria-label="Histórico">${ICON.history}</button>`)
+      .querySelector('#histBtn').onclick = showHistory;
+    render();
+  },
+  unmount() { if (this.cleanup) { this.cleanup(); this.cleanup = null; } }
+});
+
+/* =========================================================
+   10. MÓDULO CALENDÁRIO
+   ========================================================= */
+const REMINDERS = [['', 'Sem lembrete'], ['0', 'Na hora'], ['10', '10 min antes'], ['30', '30 min antes'], ['60', '1 hora antes'], ['1440', '1 dia antes']];
+const reminderLabel = v => (REMINDERS.find(r => r[0] === String(v)) || ['', ''])[1];
+Platform.register({
+  id: 'calendar', name: 'Calendário', icon: '📅', colorVar: '--c-cal',
+  async mount(view, params) {
+    const today = ymd(new Date());
+    let sel = /^\d{4}-\d{2}-\d{2}$/.test(params[0] || '') ? params[0] : today;
+    let vy, vm;
+    const syncView = () => { const [y, m] = sel.split('-').map(Number); vy = y; vm = m - 1; };
+    syncView();
+    let events = await Events.list();
+
+    view.innerHTML = `<div class="cal">
+      <div class="cal-head">
+        <button class="icon-btn" id="prev" aria-label="Mês anterior">‹</button>
+        <h2 id="mtitle" aria-live="polite"></h2>
+        <button class="icon-btn" id="next" aria-label="Próximo mês">›</button>
+      </div>
+      <div class="weekdays" aria-hidden="true">${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(d => `<span>${d}</span>`).join('')}</div>
+      <div class="days" id="days"></div>
+      <section class="day-panel"><h3 id="dtitle"></h3><div id="dlist"></div></section>
+    </div>
+    <div class="fab-wrap"><button class="fab" id="newEv" style="--fab:var(--c-cal)">+ Novo evento</button></div>`;
+    Topbar.actions('<button class="text-btn" id="goToday">Hoje</button>').querySelector('#goToday').onclick = () => select(today);
+
+    const renderMonth = () => {
+      const first = new Date(vy, vm, 1);
+      $('#mtitle').textContent = cap(first.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }));
+      const daysIn = new Date(vy, vm + 1, 0).getDate();
+      const cells = Math.ceil((first.getDay() + daysIn) / 7) * 7;
+      const withEv = new Set(events.map(e => e.date));
+      let html = '';
+      for (let i = 0; i < cells; i++) {
+        const d = new Date(vy, vm, 1 - first.getDay() + i), k = ymd(d), has = withEv.has(k);
+        html += `<button class="day${d.getMonth() !== vm ? ' out' : ''}${k === today ? ' today' : ''}" data-d="${k}" aria-pressed="${k === sel}"
+          aria-label="${d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}${has ? ', tem eventos' : ''}">
+          <span>${d.getDate()}</span><i class="dot" style="visibility:${has ? 'visible' : 'hidden'}"></i></button>`;
+      }
+      $('#days').innerHTML = html;
+    };
+    const renderDay = () => {
+      const [y, m, d] = sel.split('-').map(Number);
+      $('#dtitle').textContent = sel === today ? 'Hoje' : cap(new Date(y, m - 1, d).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }));
+      const list = events.filter(e => e.date === sel).sort(byTime);
+      $('#dlist').innerHTML = list.length
+        ? list.map(e => `<button class="ev" data-id="${esc(e.id)}"><time>${e.time || 'Dia todo'}</time>
+            <span class="grow"><b>${esc(e.title)}</b>${e.description ? `<small>${esc(e.description)}</small>` : ''}
+            ${e.reminder ? `<small>🔔 ${reminderLabel(e.reminder)}</small>` : (e.reminder === '0' ? '' : '')}</span></button>`).join('')
+        : '<p class="muted">Nenhum evento neste dia.</p>';
+    };
+    const select = k => {
+      sel = k; syncView(); renderMonth(); renderDay();
+      history.replaceState(null, '', '#/calendar/' + sel);
+    };
+    const reload = async () => { events = await Events.list(); renderMonth(); renderDay(); };
+
+    const openForm = ev => {
+      const el = Sheet.open(`<form id="evf" novalidate>
+        <h2>${ev ? 'Editar evento' : 'Novo evento'}</h2>
+        <label class="field"><span>Título</span><input name="title" maxlength="120" value="${esc(ev ? ev.title : '')}" autofocus></label>
+        <label class="field"><span>Descrição</span><textarea name="description" rows="3" maxlength="1000">${esc(ev ? ev.description || '' : '')}</textarea></label>
+        <div class="row">
+          <label class="field"><span>Data</span><input type="date" name="date" value="${esc(ev ? ev.date : sel)}"></label>
+          <label class="field"><span>Horário</span><input type="time" name="time" value="${esc(ev ? ev.time || '' : '')}"></label>
+        </div>
+        <label class="field"><span>Lembrete</span><select name="reminder">${REMINDERS.map(([v, l]) =>
+          `<option value="${v}" ${String(ev ? ev.reminder ?? '' : '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <p class="hint">Sem horário, o evento vale o dia inteiro. O lembrete fica salvo, mas o aviso no celular depende das notificações nativas do Android. ${tag('android')}</p>
+        <p class="err" id="everr" role="alert"></p>
+        <div class="actions">
+          ${ev ? '<button type="button" class="btn danger" id="evdel">Excluir</button>' : ''}
+          <button type="button" class="btn grow" id="evcancel">Cancelar</button>
+          <button type="submit" class="btn primary grow">Salvar</button>
+        </div></form>`);
+      const err = m => { el.querySelector('#everr').textContent = m; };
+      el.querySelector('#evcancel').onclick = () => Sheet.close();
+      el.querySelector('#evf').addEventListener('submit', async e => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        const title = String(f.get('title') || '').trim(), date = String(f.get('date') || '');
+        if (!title) return err('Dê um título ao evento.');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return err('Escolha uma data válida.');
+        try {
+          await Events.save({ ...(ev || {}), title, date,
+            description: String(f.get('description') || '').trim(),
+            time: String(f.get('time') || ''),
+            reminder: String(f.get('reminder') || '') });
+        } catch (x) { return err('Não foi possível salvar: ' + x.message); }
+        Sheet.close(); sel = date; syncView(); await reload();
+        history.replaceState(null, '', '#/calendar/' + sel);
+        toast(ev ? 'Evento atualizado' : 'Evento criado');
+      });
+      const del = el.querySelector('#evdel');
+      if (del) del.onclick = async () => {
+        if (!(await confirmSheet('Excluir este evento?', `“${ev.title}” será removido deste aparelho.`))) return;
+        await Events.remove(ev.id); await reload(); toast('Evento excluído');
+      };
+    };
+
+    $('#prev').onclick = () => { vm--; if (vm < 0) { vm = 11; vy--; } renderMonth(); };
+    $('#next').onclick = () => { vm++; if (vm > 11) { vm = 0; vy++; } renderMonth(); };
+    $('#days').addEventListener('click', e => { const b = e.target.closest('[data-d]'); if (b) select(b.dataset.d); });
+    $('#dlist').addEventListener('click', e => { const b = e.target.closest('[data-id]'); if (b) openForm(events.find(x => x.id === b.dataset.id)); });
+    $('#newEv').onclick = () => openForm(null);
+    renderMonth(); renderDay();
+  }
+});
+
+/* =========================================================
+   11. STATUS DO SISTEMA — o que é real e o que falta
+   ========================================================= */
+const FEATURES = [
+  ['Tela inicial e central de módulos', 'ok'],
+  ['Notas: criar, editar, excluir, pesquisar, favoritar, categorizar, salvar sozinha', 'ok'],
+  ['Calculadora com histórico', 'ok'],
+  ['Calendário: mês, dias, criar, editar e excluir eventos', 'ok'],
+  ['Banco local no aparelho (IndexedDB)', 'ok'],
+  ['Fila local de alterações para sincronizar', 'ok'],
+  ['Perfil com nome, foto e identificador (neste aparelho)', 'ok'],
+  ['Telas e regras de contatos, solicitações e conversas', 'ok'],
+  ['Estados da mensagem, fila de pendentes e reenvio sem duplicar', 'ok'],
+  ['Gerenciador de conexão (escolhe o canal ou deixa pendente)', 'ok'],
+  ['Servidor de teste local para simular outras pessoas', 'proto'],
+  ['Identificador garantido como único entre todos os usuários', 'backend'],
+  ['Encontrar pessoas reais e conversar pela internet', 'backend'],
+  ['Sincronização com banco central', 'backend'],
+  ['Acesso pelo computador com código temporário', 'backend'],
+  ['Notificação de nova mensagem e aviso de lembrete', 'android'],
+  ['Comunicação por Bluetooth', 'android'],
+  ['Bloquear usuário', 'future'],
+  ['Instalar novos módulos pelo botão +', 'future'],
+  ['Imagens, áudios, grupos e chamadas', 'future']
+];
+const Status = {
+  id: 'status', name: 'Status do sistema',
+  async mount(view) {
+    const pending = await Outbox.count();
+    const pendingMsgs = (await DB.all('messages')).filter(m => m.status === 'pending' || m.status === 'sending').length;
+    const theme = await Settings.get('theme', 'system');
+    let usage = null, persisted = false;
+    try { if (navigator.storage && navigator.storage.estimate) usage = (await navigator.storage.estimate()).usage; } catch (e) {}
+    try { if (navigator.storage && navigator.storage.persisted) persisted = await navigator.storage.persisted(); } catch (e) {}
+    view.innerHTML = `<div class="pad">
+      <section class="panel"><h2>Este aparelho</h2>
+        <dl class="kv">
+          <dt>Banco local</dt><dd>${DB.engine === 'indexeddb' ? 'IndexedDB' : 'Memória (temporário)'}</dd>
+          <dt>ID do aparelho</dt><dd>${esc(String(App.deviceId).slice(0, 8))}</dd>
+          <dt>Alterações aguardando envio</dt><dd>${pending}</dd>
+          <dt>Mensagens pendentes</dt><dd>${pendingMsgs}</dd>
+          <dt>Espaço usado</dt><dd>${fmtBytes(usage)}</dd>
+          <dt>Protegido contra limpeza</dt><dd>${persisted ? 'Sim' : 'Não'}</dd>
+        </dl>
+        ${persisted || !(navigator.storage && navigator.storage.persist) ? '' : '<button class="btn" id="persist" style="width:100%;margin-top:8px">Proteger dados contra limpeza automática</button>'}
+      </section>
+      <section class="panel"><h2>Servidor</h2>
+        <div class="switch-row"><span>Modo de teste local ${tag('proto')}</span>
+          <button class="switch" role="switch" id="simMode" aria-checked="${Backend.mode === 'sim'}" aria-label="Modo de teste local"></button></div>
+        <p class="muted small" style="margin:0">Simula o servidor central dentro deste aparelho para testar perfil, contatos, solicitações e mensagens. Não conecta com outras pessoas de verdade.</p>
+        ${Sync.lastError ? `<p class="err" style="margin-top:10px">Última sincronização falhou: ${esc(Sync.lastError)}</p>` : ''}
+      </section>
+      <section class="panel"><h2>Aparência</h2>
+        <div class="seg" role="radiogroup" aria-label="Tema">
+          ${[['system', 'Automático'], ['light', 'Claro'], ['dark', 'Escuro']].map(([v, l]) =>
+            `<button role="radio" data-t="${v}" aria-checked="${theme === v}">${l}</button>`).join('')}
+        </div>
+      </section>
+      <section class="panel"><h2>Funcionalidades</h2>
+        <ul class="status-list">${FEATURES.map(([n, k]) => `<li><span>${n}</span>${tag(k)}</li>`).join('')}</ul>
+      </section>
+      <p class="muted small" style="margin-top:16px">Cada alteração entra numa fila deste aparelho. Quando o banco central existir (Fase 3), a fila será enviada e o contador voltará a zero.</p>
+    </div>`;
+    $('#simMode').onclick = async () => {
+      Backend.mode = Backend.mode === 'sim' ? 'none' : 'sim';
+      await Settings.set('backendMode', Backend.mode);
+      toast(Backend.mode === 'sim' ? 'Modo de teste ligado' : 'Modo de teste desligado');
+      Bus.emit('conn'); Sync.soon(); this.mount(view);
+    };
+    const p = $('#persist');
+    if (p) p.onclick = async () => {
+      let ok = false; try { ok = await navigator.storage.persist(); } catch (e) {}
+      toast(ok ? 'Dados protegidos' : 'O navegador não liberou a proteção agora');
+      this.mount(view);
+    };
+    view.querySelector('.seg').addEventListener('click', async e => {
+      const b = e.target.closest('[data-t]'); if (!b) return;
+      await Settings.set('theme', b.dataset.t); applyTheme(b.dataset.t);
+      view.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-checked', x === b));
+    });
+  }
+};
+
+/* =========================================================
+   12. INICIALIZAÇÃO
+   ========================================================= */
+(async function init() {
+  await DB.open();
+  try {
+    let dev = await Settings.get('deviceId');
+    if (!dev) { dev = uid(); await Settings.set('deviceId', dev); }
+    App.deviceId = dev;
+    applyTheme(await Settings.get('theme', 'system'));
+    Backend.mode = await Settings.get('backendMode', 'none');
+    await Identity.load();
+  } catch (e) { console.error(e); App.deviceId = App.deviceId || uid(); }
+  if (DB.engine !== 'indexeddb') toast('Banco local indisponível: os dados desta sessão não serão salvos.');
+  window.addEventListener('hashchange', route);
+  route();
+  Sync.start();
+})();
+</script>
+</body>
+</html>
