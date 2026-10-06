@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Núcleo — Fase 2</title>
+<title>Núcleo</title>
+<meta name="theme-color" content="#E8EDF1">
+<!-- Supabase (servidor central). Fica guardado pelo sw.js para abrir sem internet. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -282,8 +285,13 @@ a.row-item{cursor:pointer}
    1. UTILITÁRIOS
    ========================================================= */
 const $ = (s, r = document) => r.querySelector(s);
-const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
-  : 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+const uid = () => {                       // UUID v4 (o banco central exige esse formato)
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+  const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+};
 const now = () => new Date().toISOString();
 const pad = n => String(n).padStart(2, '0');
 const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -480,6 +488,7 @@ const Platform = {
 };
 let current = null;
 async function route() {
+  if (location.hash && !location.hash.startsWith('#/')) return;   // retorno de login por e-mail
   const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
   const id = parts[0] || 'home';
   if (!$('#sheet').hidden) Sheet.close();
@@ -487,7 +496,7 @@ async function route() {
   current = null;
   const view = $('#view'); view.innerHTML = '';
   window.scrollTo(0, 0);
-  const mod = id === 'home' ? Home : id === 'status' ? Status : id === 'profile' ? ProfileScreen : Platform.modules.get(id);
+  const mod = id === 'home' ? Home : id === 'status' ? Status : id === 'profile' ? ProfileScreen : id === 'conta' ? AccountScreen : Platform.modules.get(id);
   if (!mod) { location.hash = '#/'; return; }
   current = mod;
   if (mod === Home) Topbar.hide(); else Topbar.show(mod.name, parts.length > 1 ? '#/' + parts[0] : '#/');
@@ -507,7 +516,7 @@ const Home = {
   async mount(view) {
     const mods = [...Platform.modules.values()];
     view.innerHTML = `<section class="home">
-      <div class="home-top"><a href="#/profile" aria-label="${Identity.profile ? 'Meu perfil' : 'Criar perfil'}">${avatar(Identity.profile || { name: '+' }, 'sm')}</a></div>
+      <div class="home-top"><a href="#/conta" aria-label="Minha conta">${avatar(Identity.profile || { name: '+' }, 'sm')}</a></div>
       <div class="clock" id="clock"></div>
       <div class="date" id="date"></div>
       <nav class="grid" aria-label="Aplicativos">
@@ -550,17 +559,26 @@ const Home = {
 };
 
 /* =========================================================
-   7. FASE 2 — IDENTIDADE, CONTATOS, SOLICITAÇÕES E MENSAGENS
+   7. FASE 3 — CONTA, SERVIDOR (SUPABASE), SINCRONIZAÇÃO E MENSAGENS
    ========================================================= */
+const CONFIG = {
+  SUPABASE_URL: 'https://lfzjzekquhomwxsavzdk.supabase.co',
+  // Chave publicável: pode ficar no código. A proteção vem das regras RLS do banco.
+  // NUNCA coloque aqui a chave secreta (sb_secret_...).
+  SUPABASE_KEY: 'sb_publishable_i-h-YWU1o1aPMGc3n92TNw_UHJbUSdt'
+};
+const appUrl = () => location.origin + location.pathname;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const iso = s => new Date(s).toISOString();
+
 const Bus = {
   l: {},
   on(e, f) { (this.l[e] = this.l[e] || new Set()).add(f); return () => this.l[e].delete(f); },
-  emit(e, d) { (this.l[e] || []).forEach(f => { try { f(d); } catch (x) { console.error(x); } }); }
+  emit(e, d) { [...(this.l[e] || [])].forEach(f => { try { f(d); } catch (x) { console.error(x); } }); }
 };
 const randNum = () => { const a = new Uint32Array(1); crypto.getRandomValues(a); return String(1000 + (a[0] % 9000)); };
 const parseTag = s => { const m = String(s || '').trim().match(/^(.+?)\s*#\s*(\d{4})$/); return m ? { name: m[1].trim(), number: m[2] } : null; };
-const sameName = (a, b) => norm(a).trim() === norm(b).trim();
-const shortTime = iso => { const d = new Date(iso); return ymd(d) === ymd(new Date()) ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); };
+const shortTime = v => { const d = new Date(v); return ymd(d) === ymd(new Date()) ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); };
 function dayLabel(k) {
   const y = new Date(); y.setDate(y.getDate() - 1);
   if (k === ymd(new Date())) return 'Hoje';
@@ -589,28 +607,15 @@ function readPhoto(file, size = 192) {
         const c = document.createElement('canvas'); c.width = c.height = size;
         const s = Math.min(img.width, img.height);
         c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
-        res(c.toDataURL('image/jpeg', 0.82));          // ~10–20 KB, pronta para sincronizar
+        let out = c.toDataURL('image/jpeg', 0.82);
+        if (out.length > 58000) out = c.toDataURL('image/jpeg', 0.6);   // limite do banco: 60 mil caracteres
+        res(out);
       };
       img.src = fr.result;
     };
     fr.readAsDataURL(file);
   });
 }
-
-/* 7.1 Identidade do usuário ------------------------------- */
-const Identity = {
-  profile: null,
-  async load() { this.profile = await Settings.get('profile'); return this.profile; },
-  tagOf(p) { return `${p.name} #${p.number}`; },
-  async create(name, photo) {
-    const p = { userId: uid(), name, photo: photo || '', number: randNum(), createdAt: now(), updatedAt: now(), registered: false };
-    await Settings.set('profile', p); this.profile = p; Bus.emit('profile'); Sync.soon(); return p;
-  },
-  async update(fields) {
-    const p = { ...this.profile, ...fields, updatedAt: now(), registered: false };
-    await Settings.set('profile', p); this.profile = p; Bus.emit('profile'); Sync.soon(); return p;
-  }
-};
 function validName(n) {
   if (n.length < 2) return 'O nome precisa ter pelo menos 2 letras.';
   if (n.length > 30) return 'Use no máximo 30 caracteres.';
@@ -618,132 +623,260 @@ function validName(n) {
   return '';
 }
 
-/* 7.2 Servidor — interface única com adaptadores ----------
-   Os módulos só conversam com Backend.current(). Na Fase 3,
-   um adaptador Supabase (ou outro) entra aqui sem mudar telas. */
+/* 7.1 Erros do servidor em linguagem simples -------------- */
 class BackendError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
-const OFFLINE_MSG = 'O servidor central ainda não existe. Ele chega na Fase 3.';
-const NoServer = new Proxy({ id: 'none' }, {
-  get(t, k) { return k in t ? t[k] : async () => { throw new BackendError('NO_BACKEND', OFFLINE_MSG); }; }
-});
-const pub = u => ({ id: u.id, name: u.name, number: u.number, photo: u.photo || '', isTest: !!u.isTest });
+const ERR_TEXT = {
+  SELF: 'Você não pode adicionar a si mesmo.', NOT_FOUND: 'Não encontrado. Pode já ter sido respondido.',
+  ALREADY: 'Vocês já são contatos.', DUP: 'Você já enviou uma solicitação para essa pessoa.',
+  REVERSE: 'Essa pessoa já te enviou uma solicitação. Aceite em Pedidos.', NOT_AUTH: 'Entre na sua conta de novo.'
+};
+function mapErr(e) {
+  if (e instanceof BackendError) return e;
+  const msg = String((e && e.message) || e || '');
+  if (/failed to fetch|networkerror|load failed|network request|timeout/i.test(msg)) return new BackendError('NETWORK', 'Sem conexão com o servidor.');
+  if (e && e.code === '23505') return new BackendError('TAG_TAKEN', 'Esse identificador já está em uso.');
+  if ((e && e.code === 'PGRST301') || /jwt/i.test(msg)) return new BackendError('AUTH', 'Sua sessão expirou. Entre novamente.');
+  if ((e && e.code === '42501') || /row-level security/i.test(msg)) return new BackendError('DENIED', 'Ação não permitida.');
+  if (/does not exist|could not find the (table|function)|schema cache/i.test(msg)) return new BackendError('SCHEMA', 'O banco ainda não foi criado. Rode o script SQL no Supabase.');
+  const k = Object.keys(ERR_TEXT).find(x => msg.includes(x));
+  if (k) return new BackendError(k, ERR_TEXT[k]);
+  return new BackendError('SERVER', msg || 'Erro no servidor.');
+}
 
-/* Simulador [PROTÓTIPO]: imita as regras do servidor dentro do aparelho */
-const SimServer = {
-  id: 'sim',
-  async upsertUser(p) {
-    const all = await DB.all('sim_users');
-    if (all.some(u => u.id !== p.userId && u.number === p.number && sameName(u.name, p.name)))
-      throw new BackendError('TAG_TAKEN', 'Esse identificador já está em uso.');
-    const prev = all.find(u => u.id === p.userId);
-    await DB.put('sim_users', { id: p.userId, name: p.name, number: p.number, photo: p.photo || '',
-      isTest: !!(prev && prev.isTest) || !!p.isTest, createdAt: prev ? prev.createdAt : now(), updatedAt: now() });
+/* 7.2 Cliente Supabase ------------------------------------ */
+const Cloud = {
+  sb: null, session: null, recovery: false,
+  get user() { return this.session ? this.session.user : null; },
+  init() {
+    if (!window.supabase || !window.supabase.createClient) return false;
+    this.sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    });
+    this.sb.auth.onAuthStateChange((ev, session) => {
+      const before = this.user && this.user.id;
+      this.session = session;
+      if (ev === 'PASSWORD_RECOVERY') this.recovery = true;
+      // setTimeout: não chamar o Supabase dentro deste callback (evita travamento)
+      if (session && session.user.id !== before) setTimeout(() => Account.onLogin(session.user), 0);
+      if (!session && before) setTimeout(() => Account.onLoggedOut(), 0);
+      Bus.emit('auth', ev);
+    });
+    return true;
+  },
+  async q(builder) {
+    let r;
+    try { r = await builder; } catch (e) { throw mapErr(e); }
+    if (r.error) throw mapErr(r.error);
+    return r.data;
+  }
+};
+
+/* 7.3 Servidor — mesma interface da Fase 2 ----------------- */
+const NO_ACCOUNT_MSG = 'Entre na sua conta para usar o servidor.';
+const NoServer = new Proxy({ id: 'none' }, {
+  get(t, k) { return k in t ? t[k] : async () => { throw new BackendError('NO_BACKEND', NO_ACCOUNT_MSG); }; }
+});
+const pub = u => ({ id: u.id, name: u.name, number: u.number, photo: u.photo || '' });
+const CloudServer = {
+  id: 'cloud',
+  upsertUser(p) {
+    return Cloud.q(Cloud.sb.from('profiles').upsert({ id: p.userId, name: p.name, number: p.number, photo: p.photo || '' }, { onConflict: 'id' }));
   },
   async findByTag(name, number) {
-    const u = (await DB.all('sim_users')).find(x => x.number === number && sameName(x.name, name));
-    return u ? pub(u) : null;
+    const d = await Cloud.q(Cloud.sb.rpc('find_user', { p_name: name, p_number: number }));
+    return d && d[0] ? pub(d[0]) : null;
   },
-  async sendRequest(fromId, toId) {
-    if (fromId === toId) throw new BackendError('SELF', 'Você não pode adicionar a si mesmo.');
-    if (!(await DB.get('sim_users', toId))) throw new BackendError('NOT_FOUND', 'Usuário não encontrado.');
-    const between = (await DB.all('sim_requests')).filter(r =>
-      (r.fromId === fromId && r.toId === toId) || (r.fromId === toId && r.toId === fromId));
-    if (between.some(r => r.status === 'accepted')) throw new BackendError('ALREADY', 'Vocês já são contatos.');
-    if (between.some(r => r.status === 'pending' && r.fromId === fromId)) throw new BackendError('DUP', 'Você já enviou uma solicitação para essa pessoa.');
-    if (between.some(r => r.status === 'pending' && r.fromId === toId)) throw new BackendError('REVERSE', 'Essa pessoa já te enviou uma solicitação. Aceite em Solicitações.');
-    const r = { id: uid(), fromId, toId, status: 'pending', createdAt: now(), respondedAt: null };
-    await DB.put('sim_requests', r); return r;
-  },
-  async respond(reqId, userId, accept) {
-    const r = await DB.get('sim_requests', reqId);
-    if (!r || r.toId !== userId) throw new BackendError('NOT_FOUND', 'Solicitação não encontrada.');
-    if (r.status !== 'pending') throw new BackendError('DONE', 'Essa solicitação já foi respondida.');
-    r.status = accept ? 'accepted' : 'declined'; r.respondedAt = now();
-    await DB.put('sim_requests', r); return r;
-  },
-  async cancel(reqId, userId) {
-    const r = await DB.get('sim_requests', reqId);
-    if (!r || r.fromId !== userId) throw new BackendError('NOT_FOUND', 'Solicitação não encontrada.');
-    if (r.status !== 'pending') throw new BackendError('DONE', 'Essa solicitação já foi respondida.');
-    r.status = 'cancelled'; r.respondedAt = now(); await DB.put('sim_requests', r); return r;
-  },
+  sendRequest(fromId, toId) { return Cloud.q(Cloud.sb.rpc('send_request', { p_to: toId })); },
+  respond(id, userId, accept) { return Cloud.q(Cloud.sb.rpc('respond_request', { p_id: id, p_accept: accept })); },
+  cancel(id) { return Cloud.q(Cloud.sb.rpc('cancel_request', { p_id: id })); },
   async snapshot(userId) {
-    const [users, rs] = await Promise.all([DB.all('sim_users'), DB.all('sim_requests')]);
+    const rs = await Cloud.q(Cloud.sb.from('contact_requests').select('id,from_id,to_id,status,created_at,responded_at').order('created_at', { ascending: false }).limit(500));
+    const ids = [...new Set(rs.flatMap(r => [r.from_id, r.to_id]).filter(id => id !== userId))];
+    const users = ids.length ? await Cloud.q(Cloud.sb.from('profiles').select('id,name,number,photo').in('id', ids)) : [];
     const map = new Map(users.map(u => [u.id, pub(u)]));
-    const mine = rs.filter(r => r.fromId === userId || r.toId === userId);
-    return {
-      contacts: mine.filter(r => r.status === 'accepted').map(r => map.get(r.fromId === userId ? r.toId : r.fromId)).filter(Boolean),
-      requests: mine.map(r => ({ ...r, from: map.get(r.fromId), to: map.get(r.toId) }))
-    };
+    if (Identity.profile) map.set(userId, pub({ ...Identity.profile, id: userId }));
+    const requests = rs.map(r => ({ id: r.id, fromId: r.from_id, toId: r.to_id, status: r.status,
+      createdAt: iso(r.created_at), respondedAt: r.responded_at ? iso(r.responded_at) : null, from: map.get(r.from_id), to: map.get(r.to_id) }));
+    const contacts = requests.filter(r => r.status === 'accepted').map(r => map.get(r.fromId === userId ? r.toId : r.fromId)).filter(Boolean);
+    return { contacts, requests };
   },
   async sendMessage(m) {
-    const existing = await DB.get('sim_messages', m.id);
-    if (existing) return { serverAt: existing.serverAt };            // mesmo ID = não duplica
-    const { contacts } = await this.snapshot(m.from);
-    if (!contacts.some(c => c.id === m.to)) throw new BackendError('NOT_CONTACT', 'Vocês não são contatos.');
-    const rec = { id: m.id, from: m.from, to: m.to, body: m.body, createdAt: m.createdAt, serverAt: now(), deliveredAt: null, readAt: null };
-    await DB.put('sim_messages', rec); return { serverAt: rec.serverAt };
+    let r;
+    try { r = await Cloud.sb.from('messages').insert({ id: m.id, sender_id: m.from, recipient_id: m.to, body: m.body, created_at: m.createdAt }); }
+    catch (e) { throw mapErr(e); }
+    if (r.error && r.error.code !== '23505') throw mapErr(r.error);   // 23505 = já estava guardada: não duplica
   },
-  async pull(userId) {                                                // entrega o que estava guardado
-    const all = await DB.all('sim_messages');
-    const incoming = all.filter(m => m.to === userId && !m.deliveredAt);
-    for (const m of incoming) { m.deliveredAt = now(); await DB.put('sim_messages', m); }
-    const receipts = all.filter(m => m.from === userId).map(m => ({ id: m.id, deliveredAt: m.deliveredAt, readAt: m.readAt }));
-    return { incoming, receipts };
+  async incoming(userId) {
+    const d = await Cloud.q(Cloud.sb.from('messages').select('id,sender_id,recipient_id,body,created_at')
+      .eq('recipient_id', userId).is('delivered_at', null).order('server_at').limit(500));
+    return d.map(m => ({ id: m.id, from: m.sender_id, to: m.recipient_id, body: m.body, createdAt: iso(m.created_at) }));
   },
-  async markRead(userId, peerId) {
-    for (const m of await DB.all('sim_messages'))
-      if (m.to === userId && m.from === peerId && !m.readAt) { m.readAt = now(); m.deliveredAt = m.deliveredAt || m.readAt; await DB.put('sim_messages', m); }
+  async ackDelivered(ids) { if (ids.length) await Cloud.q(Cloud.sb.rpc('mark_delivered', { p_ids: ids })); },
+  async receipts(ids) {
+    const out = [];
+    for (let i = 0; i < ids.length; i += 100)
+      out.push(...await Cloud.q(Cloud.sb.from('messages').select('id,delivered_at,read_at').in('id', ids.slice(i, i + 100))));
+    return out.map(r => ({ id: r.id, deliveredAt: r.delivered_at, readAt: r.read_at }));
   },
-  test: {
-    async create(name) {
-      for (let i = 0; i < 6; i++) {
-        const u = { userId: uid(), name, number: randNum(), isTest: true };
-        try { await SimServer.upsertUser(u); return u; } catch (e) { if (e.code !== 'TAG_TAKEN') throw e; }
-      }
-      throw new BackendError('TAG_TAKEN', 'Não foi possível gerar um identificador livre.');
-    },
-    async list() { return (await DB.all('sim_users')).filter(u => u.isTest).map(pub).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')); },
-    async reset() {
-      for (const n of ['sim_users', 'sim_requests', 'sim_messages', 'contacts', 'requests', 'messages']) await DB.clear(n);
-      if (Identity.profile) { Identity.profile.registered = false; await Settings.set('profile', Identity.profile); }
-    }
+  markRead(userId, peerId) { return Cloud.q(Cloud.sb.rpc('mark_read', { p_peer: peerId })); },
+  history() {
+    return Cloud.q(Cloud.sb.from('messages').select('id,sender_id,recipient_id,body,created_at,delivered_at,read_at')
+      .order('server_at', { ascending: false }).limit(500));
   }
 };
 const Backend = {
-  mode: 'none',                                  // 'none' | 'sim' | (Fase 3) 'supabase'
-  current() { return this.mode === 'sim' ? SimServer : NoServer; },
-  get available() { return this.mode === 'sim'; }
+  current() { return Cloud.user ? CloudServer : NoServer; },
+  get available() { return !!(Cloud.sb && Cloud.user); }
 };
 
-/* 7.3 Gerenciador de conexão ------------------------------ */
+/* 7.4 Gerenciador de conexão ------------------------------ */
 const Bluetooth = { supported: false, connected: false };   // Fase 4: plugin nativo Android
 const Connection = {
-  simOffline: false,
-  internet() { return navigator.onLine && !this.simOffline; },
+  internet() { return navigator.onLine; },
   channel() {
-    if (this.internet() && Backend.available) return 'online';   // 1. internet
+    if (this.internet() && Backend.available) return 'online';    // 1. internet
     if (Bluetooth.connected) return 'bluetooth';                    // 2. Bluetooth (Fase 4)
     return 'none';                                                  // 3. fica pendente
   },
   describe() {
-    if (this.channel() === 'online') return { on: true, text: Backend.mode === 'sim' ? 'Conectado ao servidor de teste local' : 'Online' };
-    if (!Backend.available) return { on: false, text: 'Sem servidor central ainda: mensagens ficam pendentes neste aparelho' };
-    return { on: false, text: 'Sem internet: mensagens ficam pendentes e saem sozinhas quando a conexão voltar' };
+    if (!Cloud.sb) return { on: false, text: 'Conexão com o servidor indisponível. Abra o app com internet para carregá-la.' };
+    if (!Cloud.user) return { on: false, text: 'Entre na sua conta para enviar mensagens.' };
+    if (!this.internet()) return { on: false, text: 'Sem internet: mensagens ficam pendentes e saem sozinhas quando a conexão voltar.' };
+    if (Sync.lastError) return { on: false, text: 'Problema com o servidor: ' + Sync.lastError };
+    return { on: true, text: Realtime.live ? 'Online, em tempo real' : 'Online' };
   }
 };
 window.addEventListener('online', () => { Bus.emit('conn'); Sync.soon(); });
 window.addEventListener('offline', () => Bus.emit('conn'));
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') Sync.soon(); });
 
-/* 7.4 Sincronização de mensagens, contatos e solicitações -- */
+/* 7.5 Tempo real: o servidor avisa, o app sincroniza ------- */
+const Realtime = {
+  ch: null, live: false,
+  start(uid) {
+    this.stop();
+    if (!Cloud.sb) return;
+    const go = () => Sync.soon();
+    this.ch = Cloud.sb.channel('nucleo-' + uid)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: 'recipient_id=eq.' + uid }, go)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: 'sender_id=eq.' + uid }, go)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_requests' }, go)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notes', filter: 'user_id=eq.' + uid }, go)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: 'user_id=eq.' + uid }, go)
+      .subscribe(status => { this.live = status === 'SUBSCRIBED'; Bus.emit('conn'); });
+  },
+  stop() { if (this.ch && Cloud.sb) Cloud.sb.removeChannel(this.ch); this.ch = null; this.live = false; }
+};
+
+/* 7.6 Notificações (Web: app aberto ou em segundo plano) --- */
+const Notifier = {
+  get supported() { return 'Notification' in window && 'serviceWorker' in navigator; },
+  get state() { return this.supported ? Notification.permission : 'unsupported'; },
+  async ask() { return this.supported ? Notification.requestPermission() : 'unsupported'; },
+  async messages(list) {
+    if (this.state !== 'granted' || !list.length) return;
+    const reg = await navigator.serviceWorker.getRegistration(); if (!reg) return;
+    const openPeer = decodeURIComponent((location.hash.match(/^#\/messages\/chat\/([^/]+)/) || [])[1] || '');
+    const names = new Map((await DB.all('contacts')).map(c => [c.id, c.name]));
+    const byPeer = new Map();
+    for (const m of list) byPeer.set(m.peer, [...(byPeer.get(m.peer) || []), m]);
+    for (const [peer, ms] of byPeer) {
+      if (!document.hidden && openPeer === peer) continue;
+      reg.showNotification(names.get(peer) || 'Nova mensagem', {
+        body: ms.length > 1 ? `${ms.length} novas mensagens` : ms[ms.length - 1].body.slice(0, 140),
+        tag: 'msg-' + peer, renotify: true, data: { url: '#/messages/chat/' + encodeURIComponent(peer) }
+      });
+    }
+  }
+};
+
+/* 7.7 Identidade ------------------------------------------ */
+const Identity = {
+  profile: null,
+  async load() { this.profile = await Settings.get('profile'); return this.profile; },
+  tagOf(p) { return `${p.name} #${p.number}`; },
+  async create(name, photo) {
+    if (!Cloud.user) throw new Error('Entre na sua conta primeiro.');
+    const p = { userId: Cloud.user.id, name, photo: photo || '', number: randNum(), createdAt: now(), updatedAt: now(), registered: false };
+    await Settings.set('profile', p); this.profile = p; Bus.emit('profile'); Sync.soon(); return p;
+  },
+  async update(fields) {
+    const p = { ...this.profile, ...fields, updatedAt: now(), registered: false };
+    await Settings.set('profile', p); this.profile = p; Bus.emit('profile'); Sync.soon(); return p;
+  },
+  async fromCloud(user) {
+    let row;
+    try { row = await Cloud.q(Cloud.sb.from('profiles').select('id,name,number,photo,created_at').eq('id', user.id).maybeSingle()); }
+    catch (e) { if (e.code === 'NETWORK') return; throw e; }          // sem internet: mantém o local
+    if (row) this.profile = { userId: user.id, name: row.name, number: row.number, photo: row.photo || '', createdAt: iso(row.created_at), updatedAt: now(), registered: true };
+    else if (this.profile) this.profile = { ...this.profile, userId: user.id, registered: false };
+    if (this.profile) await Settings.set('profile', this.profile);
+    Bus.emit('profile');
+  }
+};
+
+/* 7.8 Conta: entrar, sair, trocar de conta ----------------- */
+async function wipeUserData() {
+  for (const n of ['notes', 'events', 'outbox', 'contacts', 'requests', 'messages']) await DB.clear(n);
+  for (const k of ['profile', 'cloudUserId', 'pull:notes', 'pull:events', 'msgBackfilled']) await DB.del('settings', k);
+  Identity.profile = null;
+}
+const Account = {
+  async onLogin(user) {
+    try {
+      const prev = await Settings.get('cloudUserId');
+      if (prev !== user.id) {
+        if (prev) await wipeUserData();               // outra conta usou este aparelho
+        for (const n of ['contacts', 'requests', 'messages', 'sim_users', 'sim_requests', 'sim_messages']) await DB.clear(n);
+        for (const k of ['pull:notes', 'pull:events', 'msgBackfilled']) await DB.del('settings', k);
+        // notas e eventos criados antes de entrar passam a ser desta conta
+        for (const s of ['notes', 'events']) for (const r of await DB.all(s)) await Outbox.enqueue(s, r.id, r.deleted ? 'delete' : 'upsert');
+        await Settings.set('cloudUserId', user.id);
+      }
+      await Identity.fromCloud(user);
+      Realtime.start(user.id);
+      Sync.soon();
+    } catch (e) { console.error(e); toast(mapErr(e).message); }
+    Bus.emit('auth', 'APP_LOGIN');
+  },
+  onLoggedOut() { Realtime.stop(); Bus.emit('auth', 'APP_LOGOUT'); },
+  async logout() {
+    const pending = await Outbox.count() + (await DB.all('messages')).filter(m => m.status === 'pending' || m.status === 'sending').length;
+    const detail = pending
+      ? `Há ${pending} alteração(ões) ainda não enviada(s) ao servidor. Se sair agora, elas serão perdidas.`
+      : 'Os dados deste aparelho serão apagados. O que já está na nuvem volta quando você entrar de novo.';
+    if (!(await confirmSheet('Sair da conta?', detail, 'Sair'))) return;
+    Realtime.stop();
+    try { await Cloud.sb.auth.signOut({ scope: 'local' }); } catch (e) { console.error(e); }
+    Cloud.session = null;
+    await wipeUserData();
+    toast('Você saiu da conta');
+    if (location.hash === '#/conta') route(); else location.hash = '#/conta';
+  }
+};
+
+/* 7.9 Sincronização --------------------------------------- */
 const RANK = { pending: 0, failed: 0, sending: 1, sent: 2, delivered: 3, read: 4 };
+const NOTE_FIELDS = ['title', 'body', 'category', 'favorite'];
+const EVENT_FIELDS = ['title', 'description', 'date', 'time', 'reminder'];
+function toRow(table, r) {
+  const row = { id: r.id, created_at: r.createdAt, updated_at: r.updatedAt, version: r.version || 1, device_id: r.deviceId || null, deleted: !!r.deleted };
+  if (table === 'notes') { row.title = r.title || ''; row.body = r.body || ''; row.category = r.category || ''; row.favorite = !!r.favorite; }
+  else { row.title = r.title || 'Sem título'; row.description = r.description || ''; row.date = r.date; row.time = r.time || ''; row.reminder = String(r.reminder ?? ''); }
+  return row;
+}
+function fromRow(table, row) {
+  const r = { id: row.id, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at), version: row.version, deviceId: row.device_id, deleted: !!row.deleted, syncStatus: 'synced' };
+  for (const f of (table === 'notes' ? NOTE_FIELDS : EVENT_FIELDS)) r[f] = row[f];
+  return r;
+}
 const Sync = {
   busy: false, again: false, t: null, lastError: null, lastSync: null,
-  soon() { clearTimeout(this.t); this.t = setTimeout(() => this.run(), 120); },
+  soon(ms = 150) { clearTimeout(this.t); this.t = setTimeout(() => this.run(), ms); },
   async ensureRegistered() {
-    const me = Identity.profile; if (!me || me.registered) return;
-    for (let i = 0; i < 5; i++) {
-      try { await Backend.current().upsertUser(me); me.registered = true; await Settings.set('profile', me); return; }
+    const me = Identity.profile; if (!me || me.registered || !Cloud.user) return;
+    for (let i = 0; i < 6; i++) {
+      try { await CloudServer.upsertUser(me); me.registered = true; await Settings.set('profile', me); Bus.emit('profile'); return; }
       catch (e) {
         if (e.code !== 'TAG_TAKEN') throw e;
         me.number = randNum(); await Settings.set('profile', me);
@@ -753,55 +886,113 @@ const Sync = {
   },
   async run() {
     if (this.busy) { this.again = true; return; }
-    const me = Identity.profile;
-    if (!me || Connection.channel() !== 'online') return;
+    if (!Cloud.user || !Connection.internet()) return;
     this.busy = true;
-    const api = Backend.current();
+    let changed = false;
     try {
-      await this.ensureRegistered();
-      // 1. envia pendentes (também as que ficaram "enviando" se o app fechou no meio)
-      const out = (await DB.all('messages'))
-        .filter(m => m.from === me.userId && (m.status === 'pending' || m.status === 'sending'))
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-      for (const m of out) {
-        if (Connection.channel() !== 'online') break;
-        await DB.put('messages', { ...m, status: 'sending', channel: 'online' }); Bus.emit('messages');
-        try {
-          const r = await api.sendMessage(m);
-          await DB.put('messages', { ...m, status: 'sent', channel: 'online', serverAt: r.serverAt });
-        } catch (e) {
-          if (e.code === 'NO_BACKEND' || e.code === 'NETWORK') { await DB.put('messages', { ...m, status: 'pending' }); break; }
-          await DB.put('messages', { ...m, status: 'failed', error: e.message });
-        }
-      }
-      // 2. confirma leituras feitas aqui enquanto estava sem conexão
-      const readPeers = new Set((await DB.all('messages')).filter(m => m.status === 'read' && m.from !== me.userId && m.readSynced === false).map(m => m.peer));
-      for (const peer of readPeers) {
-        await api.markRead(me.userId, peer);
-        for (const m of await DB.byIndex('messages', 'peer', peer)) if (m.readSynced === false) await DB.put('messages', { ...m, readSynced: true });
-      }
-      // 3. recebe novas mensagens e recibos (entregue / lida)
-      const { incoming, receipts } = await api.pull(me.userId);
-      for (const im of incoming)
-        if (!(await DB.get('messages', im.id)))
-          await DB.put('messages', { id: im.id, peer: im.from, from: im.from, to: im.to, body: im.body, createdAt: im.createdAt, status: 'received', channel: 'online' });
-      for (const r of receipts) {
-        const m = await DB.get('messages', r.id); if (!m) continue;
-        const st = r.readAt ? 'read' : r.deliveredAt ? 'delivered' : m.status;
-        if ((RANK[st] ?? 0) > (RANK[m.status] ?? 0)) await DB.put('messages', { ...m, status: st });
-      }
-      // 4. contatos e solicitações (cópia local para funcionar sem conexão)
-      const snap = await api.snapshot(me.userId);
-      await DB.clear('contacts'); for (const c of snap.contacts) await DB.put('contacts', { ...c, syncedAt: now() });
-      await DB.clear('requests'); for (const r of snap.requests) await DB.put('requests', r);
+      changed = (await this.pushRecords()) || changed;
+      changed = (await this.pullRecords('notes')) || changed;
+      changed = (await this.pullRecords('events')) || changed;
+      if (Identity.profile) { await this.ensureRegistered(); await this.syncMessages(); }
       this.lastError = null; this.lastSync = now();
-    } catch (e) { console.error(e); this.lastError = e.message; }
-    finally {
-      this.busy = false; Bus.emit('sync');
+    } catch (e) {
+      const x = mapErr(e); console.error(e);
+      this.lastError = x.code === 'NETWORK' ? null : x.message;
+    } finally {
+      this.busy = false;
+      if (changed) Bus.emit('data');
+      Bus.emit('sync');
       if (this.again) { this.again = false; this.soon(); }
     }
   },
-  start() { setInterval(() => { if (document.visibilityState === 'visible') this.run(); }, 4000); this.run(); }
+  // Envia notas/eventos alterados (fila "outbox")
+  async pushRecords() {
+    let changed = false;
+    for (const o of await DB.all('outbox')) {
+      if (o.entity !== 'notes' && o.entity !== 'events') continue;
+      const rec = await DB.get(o.entity, o.entityId);
+      if (!rec || !UUID_RE.test(rec.id)) { await DB.del('outbox', o.id); continue; }
+      try { await Cloud.q(Cloud.sb.from(o.entity).upsert(toRow(o.entity, rec), { onConflict: 'id' })); }
+      catch (e) { if (e.code === 'NETWORK' || e.code === 'AUTH' || e.code === 'SCHEMA') throw e; console.error(e); continue; }
+      const cur = await DB.get(o.entity, rec.id);
+      if (cur && cur.updatedAt === rec.updatedAt) { await DB.put(o.entity, { ...cur, syncStatus: 'synced' }); changed = true; }
+      const ob = await DB.get('outbox', o.id);
+      if (ob && ob.queuedAt === o.queuedAt) await DB.del('outbox', o.id);   // não apaga uma edição mais nova
+    }
+    return changed;
+  },
+  // Baixa o que mudou na nuvem desde a última vez (a versão mais recente vence)
+  async pullRecords(table) {
+    const key = 'pull:' + table;
+    let since = await Settings.get(key, '1970-01-01T00:00:00Z'), changed = false;
+    for (let page = 0; page < 25; page++) {
+      const rows = await Cloud.q(Cloud.sb.from(table).select('*').gt('server_updated_at', since).order('server_updated_at').limit(200));
+      for (const row of rows) {
+        const remote = fromRow(table, row), local = await DB.get(table, row.id);
+        if (!local || Date.parse(remote.updatedAt) > Date.parse(local.updatedAt)) { await DB.put(table, remote); changed = true; }
+        since = row.server_updated_at;
+      }
+      await Settings.set(key, since);
+      if (rows.length < 200) break;
+    }
+    return changed;
+  },
+  async syncMessages() {
+    const me = Identity.profile, api = CloudServer;
+    // 0. aparelho novo: baixa o histórico recente uma vez
+    if (!(await Settings.get('msgBackfilled'))) {
+      for (const r of await api.history()) {
+        if (await DB.get('messages', r.id)) continue;
+        const mine = r.sender_id === me.userId;
+        await DB.put('messages', { id: r.id, peer: mine ? r.recipient_id : r.sender_id, from: r.sender_id, to: r.recipient_id, body: r.body,
+          createdAt: iso(r.created_at), channel: 'online', readSynced: true,
+          status: mine ? (r.read_at ? 'read' : r.delivered_at ? 'delivered' : 'sent') : (r.read_at ? 'read' : 'received') });
+      }
+      await Settings.set('msgBackfilled', true);
+    }
+    // 1. envia pendentes (inclui as que ficaram "enviando" se o app fechou no meio)
+    const out = (await DB.all('messages')).filter(m => m.from === me.userId && (m.status === 'pending' || m.status === 'sending'))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    for (const m of out) {
+      await DB.put('messages', { ...m, status: 'sending', channel: 'online' }); Bus.emit('messages');
+      try { await api.sendMessage(m); await DB.put('messages', { ...m, status: 'sent', channel: 'online', error: null }); }
+      catch (e) {
+        const x = mapErr(e);
+        if (x.code === 'NETWORK' || x.code === 'AUTH' || x.code === 'SCHEMA') { await DB.put('messages', { ...m, status: 'pending' }); throw x; }
+        await DB.put('messages', { ...m, status: 'failed', error: x.message });
+      }
+    }
+    // 2. confirma leituras feitas enquanto estava sem conexão
+    const readPeers = new Set((await DB.all('messages')).filter(m => m.from !== me.userId && m.status === 'read' && m.readSynced === false).map(m => m.peer));
+    for (const peer of readPeers) {
+      await api.markRead(me.userId, peer);
+      for (const m of await DB.byIndex('messages', 'peer', peer)) if (m.readSynced === false) await DB.put('messages', { ...m, readSynced: true });
+    }
+    // 3. recebe novas mensagens: salva no aparelho ANTES de confirmar a entrega
+    const inc = await api.incoming(me.userId), fresh = [];
+    for (const im of inc) {
+      if (await DB.get('messages', im.id)) continue;
+      const rec = { ...im, peer: im.from, status: 'received', channel: 'online' };
+      await DB.put('messages', rec); fresh.push(rec);
+    }
+    await api.ackDelivered(inc.map(m => m.id));
+    // 4. recibos das minhas mensagens (entregue / lida)
+    const watch = (await DB.all('messages')).filter(m => m.from === me.userId && (m.status === 'sent' || m.status === 'delivered')).map(m => m.id);
+    for (const r of await api.receipts(watch)) {
+      const m = await DB.get('messages', r.id); if (!m) continue;
+      const st = r.readAt ? 'read' : r.deliveredAt ? 'delivered' : m.status;
+      if ((RANK[st] ?? 0) > (RANK[m.status] ?? 0)) await DB.put('messages', { ...m, status: st });
+    }
+    // 5. contatos e solicitações (cópia local para ver sem internet)
+    const snap = await api.snapshot(me.userId);
+    await DB.clear('contacts'); for (const c of snap.contacts) await DB.put('contacts', { ...c, syncedAt: now() });
+    await DB.clear('requests'); for (const r of snap.requests) await DB.put('requests', r);
+    if (fresh.length) Notifier.messages(fresh);
+  },
+  start() {
+    setInterval(() => { if (document.visibilityState === 'visible') this.run(); }, 20000);   // reserva caso o tempo real caia
+    this.run();
+  }
 };
 
 const Messenger = {
@@ -824,7 +1015,150 @@ const Messenger = {
 const STATUS_LABEL = { pending: 'Pendente', sending: 'Enviando', sent: 'Enviada', delivered: 'Entregue', read: 'Lida', failed: 'Falhou. Toque na mensagem para reenviar.', received: 'Recebida' };
 const STATUS_ICON = { pending: '🕓', sending: '↑', sent: '✓', delivered: '✓✓', read: '✓✓', failed: '!' };
 
-/* 7.5 Formulário de perfil (criação e edição) ------------- */
+/* 7.10 Tela de Conta -------------------------------------- */
+const AccountScreen = {
+  id: 'conta', name: 'Conta', off: [],
+  unmount() { this.off.forEach(f => f()); this.off = []; },
+  async mount(view, params) {
+    Topbar.back = '#/';
+    this.off.push(Bus.on('auth', ev => { if (!['TOKEN_REFRESHED', 'USER_UPDATED', 'INITIAL_SESSION'].includes(ev) && $('#sheet').hidden) route(); }));
+    if (!Cloud.sb) {
+      view.innerHTML = `<div class="pad"><div class="notice"><h2>Servidor indisponível</h2><p>A conexão com o Supabase não carregou. Abra o app uma vez com internet para que ela fique salva no aparelho. Notas, calculadora e calendário continuam funcionando.</p></div></div>`;
+      return;
+    }
+    if (params[0] === 'nova-senha') return this.newPassword(view);
+    if (!Cloud.user) return this.authForms(view, 'signin');
+    this.off.push(Bus.on('sync', () => this.overview(view)), Bus.on('profile', () => this.overview(view)));
+    return this.overview(view);
+  },
+
+  authForms(view, mode) {
+    const render = () => {
+      const up = mode === 'signup';
+      view.innerHTML = `<div class="pad">
+        <div class="notice"><h2>${up ? 'Criar conta' : 'Entrar na sua conta'}</h2>
+          <p>Com a conta, suas notas e eventos ficam salvos na nuvem e você pode trocar mensagens. Notas, calculadora e calendário funcionam mesmo sem conta.</p></div>
+        <nav class="tabs" style="position:static;padding:14px 0 12px">
+          <a href="#" data-m="signin" aria-current="${!up ? 'page' : 'false'}">Entrar</a>
+          <a href="#" data-m="signup" aria-current="${up ? 'page' : 'false'}">Criar conta</a></nav>
+        <form id="authf" novalidate>
+          <label class="field"><span>E-mail</span><input type="email" name="email" autocomplete="email" inputmode="email" required></label>
+          <label class="field"><span>Senha</span><input type="password" name="password" autocomplete="${up ? 'new-password' : 'current-password'}" required></label>
+          ${up ? '<p class="hint">Use pelo menos 8 caracteres.</p>' : ''}
+          <p class="err" id="aerr" role="alert"></p>
+          <div id="ainfo"></div>
+          <div class="actions"><button class="btn primary grow" type="submit">${up ? 'Criar conta' : 'Entrar'}</button></div>
+          ${up ? '' : '<button type="button" class="btn danger" id="forgot" style="width:100%;margin-top:8px;color:var(--primary)">Esqueci minha senha</button>'}
+        </form></div>`;
+      const f = $('#authf'), err = m => { $('#aerr').textContent = m; }, info = h => { $('#ainfo').innerHTML = h; };
+      view.querySelector('.tabs').addEventListener('click', e => { const a = e.target.closest('[data-m]'); if (!a) return; e.preventDefault(); mode = a.dataset.m; render(); });
+      const read = () => ({ email: String(f.email.value).trim().toLowerCase(), password: String(f.password.value) });
+      const translate = e => {
+        const m = String((e && e.message) || e);
+        if (/invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos.';
+        if (/email not confirmed/i.test(m)) return 'Confirme seu e-mail antes de entrar. Procure o link na caixa de entrada e no spam.';
+        if (/already registered|already been registered/i.test(m)) return 'Esse e-mail já tem conta. Use Entrar.';
+        if (/password should be|weak password/i.test(m)) return 'Senha fraca. Use pelo menos 8 caracteres, misturando letras e números.';
+        if (/rate limit|too many/i.test(m)) return 'Muitas tentativas seguidas. Aguarde alguns minutos.';
+        if (/fetch|network/i.test(m)) return 'Sem conexão. Entrar precisa de internet.';
+        return m;
+      };
+      f.addEventListener('submit', async e => {
+        e.preventDefault(); err(''); info('');
+        const { email, password } = read();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return err('Digite um e-mail válido.');
+        if (mode === 'signup' && password.length < 8) return err('A senha precisa ter pelo menos 8 caracteres.');
+        if (!password) return err('Digite sua senha.');
+        const btn = f.querySelector('[type=submit]'); btn.disabled = true;
+        try {
+          if (mode === 'signin') {
+            const { error } = await Cloud.sb.auth.signInWithPassword({ email, password });
+            if (error) {
+              err(translate(error));
+              if (/not confirmed/i.test(error.message)) {
+                info('<button type="button" class="btn sm" id="resend">Reenviar link de confirmação</button>');
+                $('#resend').onclick = async () => {
+                  const r = await Cloud.sb.auth.resend({ type: 'signup', email, options: { emailRedirectTo: appUrl() } });
+                  toast(r.error ? translate(r.error) : 'Link reenviado para ' + email);
+                };
+              }
+            } else toast('Bem-vindo de volta');
+          } else {
+            const { data, error } = await Cloud.sb.auth.signUp({ email, password, options: { emailRedirectTo: appUrl() } });
+            if (error) err(translate(error));
+            else if (!data.session) info(`<p class="sim-banner">Enviamos um link de confirmação para <b>${esc(email)}</b>. Abra o link <b>neste aparelho</b> para entrar. Confira também o spam.</p>`);
+            else toast('Conta criada');
+          }
+        } catch (x) { err(translate(x)); }
+        btn.disabled = false;
+      });
+      const fg = $('#forgot');
+      if (fg) fg.onclick = async () => {
+        err(''); const { email } = read();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return err('Digite seu e-mail acima e toque de novo em “Esqueci minha senha”.');
+        const { error } = await Cloud.sb.auth.resetPasswordForEmail(email, { redirectTo: appUrl() });
+        if (error) err(translate(error));
+        else info('<p class="sim-banner">Se esse e-mail tiver conta, enviamos um link para criar uma nova senha.</p>');
+      };
+    };
+    render();
+  },
+
+  newPassword(view) {
+    Topbar.setTitle('Nova senha');
+    if (!Cloud.user) { view.innerHTML = '<div class="empty"><p>Esse link expirou ou já foi usado.</p><p>Peça outro em “Esqueci minha senha”.</p></div>'; return; }
+    view.innerHTML = `<div class="pad"><form id="npf" novalidate>
+      <label class="field"><span>Nova senha</span><input type="password" name="p1" autocomplete="new-password"></label>
+      <label class="field"><span>Repita a nova senha</span><input type="password" name="p2" autocomplete="new-password"></label>
+      <p class="err" id="nperr" role="alert"></p>
+      <div class="actions"><button class="btn primary grow" type="submit">Salvar nova senha</button></div></form></div>`;
+    $('#npf').addEventListener('submit', async e => {
+      e.preventDefault();
+      const p1 = e.target.p1.value, p2 = e.target.p2.value, err = m => { $('#nperr').textContent = m; };
+      if (p1.length < 8) return err('Use pelo menos 8 caracteres.');
+      if (p1 !== p2) return err('As duas senhas não são iguais.');
+      const { error } = await Cloud.sb.auth.updateUser({ password: p1 });
+      if (error) return err(error.message);
+      Cloud.recovery = false; toast('Senha alterada'); location.hash = '#/conta';
+    });
+  },
+
+  async overview(view) {
+    if (!Cloud.user) return;
+    const p = Identity.profile;
+    const pending = await Outbox.count();
+    const pendingMsgs = (await DB.all('messages')).filter(m => m.status === 'pending' || m.status === 'sending').length;
+    const d = Connection.describe(), ns = Notifier.state;
+    view.innerHTML = `<div class="pad">
+      <section class="panel" style="margin-top:0">
+        <div style="display:flex;gap:14px;align-items:center">${avatar(p || { name: Cloud.user.email })}
+          <div class="grow" style="min-width:0"><b>${p ? esc(Identity.tagOf(p)) : 'Perfil ainda não criado'}</b><br>
+          <small class="muted" style="overflow-wrap:anywhere">${esc(Cloud.user.email)}</small></div></div>
+        <a class="btn" href="#/profile" style="display:flex;align-items:center;justify-content:center;text-decoration:none;color:var(--ink);margin-top:14px">${p ? 'Editar perfil' : 'Criar perfil'}</a>
+      </section>
+      <section class="panel"><h2>Sincronização</h2>
+        <div class="conn${d.on ? ' on' : ''}" style="margin:12px 0 4px;background:var(--surface-2)"><i></i><span>${esc(d.text)}</span></div>
+        <dl class="kv"><dt>Última sincronização</dt><dd>${Sync.lastSync ? fmtWhen(Sync.lastSync) : '—'}</dd>
+          <dt>Alterações aguardando envio</dt><dd>${pending}</dd><dt>Mensagens pendentes</dt><dd>${pendingMsgs}</dd></dl>
+        <button class="btn" id="syncNow" style="width:100%;margin-top:8px">Sincronizar agora</button>
+      </section>
+      <section class="panel"><h2>Notificações</h2>
+        <p class="muted small" style="margin:8px 0 12px">${ns === 'granted' ? 'Ativadas. Avisam novas mensagens com o app aberto ou em segundo plano.'
+          : ns === 'denied' ? 'Bloqueadas neste navegador. Libere nas configurações do site para receber avisos.'
+          : ns === 'unsupported' ? 'Este navegador não oferece notificações.'
+          : 'Receba um aviso quando chegar mensagem com o app aberto ou em segundo plano.'}
+          Com o app totalmente fechado, o aviso depende de push (próxima etapa). ${tag('backend')}</p>
+        ${ns === 'default' ? '<button class="btn primary" id="notifOn" style="width:100%">Ativar notificações</button>' : ''}
+      </section>
+      <button class="btn danger" id="logout" style="width:100%;margin-top:16px">Sair da conta</button>
+    </div>`;
+    $('#syncNow').onclick = () => { toast('Sincronizando…'); Sync.run(); };
+    const nb = $('#notifOn'); if (nb) nb.onclick = async () => { const r = await Notifier.ask(); toast(r === 'granted' ? 'Notificações ativadas' : 'Notificações não liberadas'); this.overview(view); };
+    $('#logout').onclick = () => Account.logout();
+  }
+};
+
+/* 7.11 Formulário de perfil ------------------------------- */
 const ProfileForm = {
   mount(box, profile, onSaved) {
     let photo = profile ? profile.photo || '' : '';
@@ -867,14 +1201,15 @@ const ProfileForm = {
 const ProfileScreen = {
   id: 'profile', name: 'Meu perfil',
   mount(view) {
+    if (!Cloud.user) { location.hash = '#/conta'; return; }
     const p = Identity.profile;
-    Topbar.setTitle(p ? 'Meu perfil' : 'Criar perfil');
+    Topbar.setTitle(p ? 'Meu perfil' : 'Criar perfil'); Topbar.back = '#/conta';
     view.innerHTML = `<div class="pad"><div id="pf"></div>
       ${p ? `<section class="panel"><h2>Seu identificador</h2>
         <p style="margin:8px 0 10px;font-size:1.25rem;font-weight:600">${esc(Identity.tagOf(p))}</p>
-        <p class="muted small" style="margin:0 0 12px">Envie para quem quiser te adicionar. A garantia de que ele é único entre todos os usuários vem do servidor central. ${tag('backend')}</p>
+        <p class="muted small" style="margin:0 0 12px">Envie para quem quiser te adicionar. O banco garante que ele é único.${p.registered ? '' : ' Ainda não confirmado pelo servidor: será na próxima sincronização.'}</p>
         <button class="btn" id="copyTag" style="width:100%">Copiar identificador</button></section>` : ''}</div>`;
-    ProfileForm.mount($('#pf'), p, () => { toast(p ? 'Perfil atualizado' : 'Perfil criado'); route(); });
+    ProfileForm.mount($('#pf'), p, () => { toast(p ? 'Perfil atualizado' : 'Perfil criado'); location.hash = '#/conta'; });
     const c = $('#copyTag');
     if (c) c.onclick = async () => {
       try { await navigator.clipboard.writeText(Identity.tagOf(Identity.profile)); toast('Identificador copiado'); }
@@ -883,32 +1218,39 @@ const ProfileScreen = {
   }
 };
 
-/* 7.6 Módulo Mensagens ------------------------------------ */
+/* 7.12 Módulo Mensagens ----------------------------------- */
 Platform.register({
   id: 'messages', name: 'Mensagens', icon: '💬', colorVar: '--c-msg',
   off: [],
   listen(ev, fn) { this.off.push(Bus.on(ev, fn)); },
   unmount() { this.off.forEach(f => f()); this.off = []; },
   async mount(view, params) {
+    this.listen('auth', ev => { if (!['TOKEN_REFRESHED', 'USER_UPDATED', 'INITIAL_SESSION'].includes(ev)) route(); });
+    if (!Cloud.sb || !Cloud.user) return this.needAccount(view);
     if (!Identity.profile) return this.onboarding(view);
     const sub = params[0] || 'conversas';
     if (sub === 'chat' && params[1]) return this.chat(view, params[1]);
-    if (sub === 'teste') return this.testPanel(view);
     return this.lists(view, ['conversas', 'contatos', 'pedidos'].includes(sub) ? sub : 'conversas');
+  },
+
+  needAccount(view) {
+    Topbar.back = '#/';
+    view.innerHTML = `<div class="pad"><div class="notice"><h2>Entre para usar Mensagens</h2>
+      <p>${Cloud.sb ? 'As mensagens passam pelo servidor central, então é preciso ter uma conta.' : 'A conexão com o servidor não carregou. Abra o app com internet e tente de novo.'}</p></div>
+      ${Cloud.sb ? '<a class="btn primary" href="#/conta" style="display:flex;align-items:center;justify-content:center;text-decoration:none;margin-top:14px">Entrar ou criar conta</a>' : ''}</div>`;
   },
 
   onboarding(view) {
     Topbar.back = '#/';
-    view.innerHTML = `<div class="pad"><div class="notice"><h2>Crie seu perfil para usar Mensagens</h2>
-      <p>Ele identifica você para outras pessoas. Fica salvo neste aparelho agora e vai para o servidor central quando ele existir.</p></div>
+    view.innerHTML = `<div class="pad"><div class="notice"><h2>Crie seu perfil</h2>
+      <p>Nome, foto e um identificador como Gabriel #4821. É assim que outras pessoas encontram você.</p></div>
       <div id="pf" style="margin-top:12px"></div></div>`;
     ProfileForm.mount($('#pf'), null, () => { toast('Perfil criado'); route(); });
   },
 
   async lists(view, tab) {
     Topbar.back = '#/';
-    Topbar.actions(`${Backend.mode === 'sim' ? '<a class="text-btn" href="#/messages/teste" style="display:inline-flex;align-items:center;text-decoration:none;color:var(--ink)">Teste</a>' : ''}
-      <a href="#/profile" aria-label="Meu perfil" style="margin-left:6px;display:block;border-radius:50%">${avatar(Identity.profile, 'sm')}</a>`);
+    Topbar.actions(`<a href="#/conta" aria-label="Minha conta" style="display:block;border-radius:50%">${avatar(Identity.profile, 'sm')}</a>`);
     view.innerHTML = `<div id="ml"><nav class="tabs" aria-label="Seções">
         <a href="#" data-t="conversas">Conversas</a><a href="#" data-t="contatos">Contatos</a>
         <a href="#" data-t="pedidos">Pedidos <span class="count" id="reqCount" hidden></span></a></nav>
@@ -916,7 +1258,7 @@ Platform.register({
     const root = $('#ml');
     const render = async () => {
       if (!document.body.contains(root)) return;
-      const me = Identity.profile;
+      const me = Identity.profile; if (!me) return;
       root.querySelectorAll('.tabs a').forEach(a => a.setAttribute('aria-current', a.dataset.t === tab ? 'page' : 'false'));
       const reqs = await DB.all('requests');
       const nIn = reqs.filter(r => r.toId === me.userId && r.status === 'pending').length;
@@ -931,14 +1273,14 @@ Platform.register({
       const b = e.target.closest('[data-act]'); if (!b) return;
       const act = b.dataset.act, me = Identity.profile;
       if (act === 'add') return this.addContactSheet();
-      if (Connection.channel() !== 'online') return toast(Backend.available ? 'Sem internet. Tente quando a conexão voltar.' : OFFLINE_MSG);
+      if (Connection.channel() !== 'online') return toast(Backend.available ? 'Sem internet. Tente quando a conexão voltar.' : NO_ACCOUNT_MSG);
       b.disabled = true;
       try {
         await Sync.ensureRegistered();
         if (act === 'accept' || act === 'decline') { await Backend.current().respond(b.dataset.id, me.userId, act === 'accept'); toast(act === 'accept' ? 'Contato adicionado' : 'Solicitação recusada'); }
         if (act === 'cancel') { await Backend.current().cancel(b.dataset.id, me.userId); toast('Solicitação cancelada'); }
         Sync.soon();
-      } catch (x) { toast(x.message); b.disabled = false; }
+      } catch (x) { toast(mapErr(x).message); b.disabled = false; }
     });
     this.listen('sync', render); this.listen('conn', render); this.listen('messages', render);
     await render();
@@ -969,7 +1311,7 @@ Platform.register({
     const cs = (await DB.all('contacts')).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
     return `<button class="btn primary" data-act="add" style="width:100%;margin-bottom:6px">Adicionar contato</button>` + (cs.length
       ? cs.map(c => `<a class="row-item" href="#/messages/chat/${encodeURIComponent(c.id)}">${avatar(c)}
-          <span class="info"><b>${esc(c.name)}</b><small class="handle">#${esc(c.number)}</small></span>${c.isTest ? tag('proto') : ''}</a>`).join('')
+          <span class="info"><b>${esc(c.name)}</b><small class="handle">#${esc(c.number)}</small></span></a>`).join('')
       : '<div class="empty"><p>Nenhum contato.</p><p>Peça o identificador da pessoa (ex.: Ana #1234) e envie uma solicitação.</p></div>');
   },
 
@@ -1000,7 +1342,7 @@ Platform.register({
       e.preventDefault(); err(''); el.querySelector('#addres').innerHTML = '';
       const t = parseTag(new FormData(e.target).get('tag'));
       if (!t) return err('Use o formato Nome #1234.');
-      if (!Backend.available) return err(OFFLINE_MSG);
+      if (!Backend.available) return err(NO_ACCOUNT_MSG);
       if (!Connection.internet()) return err('Sem internet. A busca precisa de conexão.');
       try {
         await Sync.ensureRegistered();
@@ -1013,9 +1355,9 @@ Platform.register({
         res.querySelector('#sendReq').onclick = async ev => {
           ev.target.disabled = true;
           try { await Backend.current().sendRequest(me.userId, u.id); toast('Solicitação enviada'); Sheet.close(); Sync.soon(); }
-          catch (x) { err(x.message); ev.target.disabled = false; }
+          catch (x) { err(mapErr(x).message); ev.target.disabled = false; }
         };
-      } catch (x) { err(x.message); }
+      } catch (x) { err(mapErr(x).message); }
     });
   },
 
@@ -1065,78 +1407,6 @@ Platform.register({
     $('#log').addEventListener('keydown', e => { const b = e.target.closest('[data-retry]'); if (b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); Messenger.retry(b.dataset.retry); } });
     this.listen('sync', render); this.listen('messages', render); this.listen('conn', render);
     await render();
-  },
-
-  /* Painel de teste [PROTÓTIPO]: age "como" outras pessoas */
-  async testPanel(view) {
-    Topbar.setTitle('Painel de teste'); Topbar.back = '#/messages';
-    if (Backend.mode !== 'sim') { view.innerHTML = '<div class="empty"><p>O modo de teste está desligado.</p><p>Ligue em Status do sistema.</p></div>'; return; }
-    const me = Identity.profile;
-    view.innerHTML = '<div class="pad" id="tp"></div>';
-    const tp = $('#tp');
-    const render = async () => {
-      const users = await SimServer.test.list();
-      const [rs, ms] = await Promise.all([DB.all('sim_requests'), DB.all('sim_messages')]);
-      tp.innerHTML = `<div class="sim-banner">Simulador ${tag('proto')} Os usuários abaixo existem só neste aparelho, para você testar os fluxos sem servidor. Nada sai para a internet.</div>
-        <section class="panel" style="margin-top:0"><div class="switch-row"><span>Simular sem internet no seu aparelho</span>
-          <button class="switch" role="switch" data-t="offline" aria-checked="${Connection.simOffline}" aria-label="Simular sem internet"></button></div>
-          <p class="muted small" style="margin:0">Ligado, suas mensagens ficam pendentes. Ao desligar, elas saem sozinhas, sem duplicar.</p></section>
-        <form class="inline-form" id="newTest"><input name="name" placeholder="Nome de um usuário de teste" maxlength="30"><button class="btn sm primary">Criar</button></form>
-        <h3 class="sec">Usuários de teste</h3>
-        ${users.length ? users.map(u => {
-          const toMe = rs.find(r => r.fromId === u.id && r.toId === me.userId && r.status === 'pending');
-          const fromMe = rs.find(r => r.fromId === me.userId && r.toId === u.id && r.status === 'pending');
-          const isContact = rs.some(r => r.status === 'accepted' && ((r.fromId === u.id && r.toId === me.userId) || (r.toId === u.id && r.fromId === me.userId)));
-          const waiting = ms.filter(m => m.to === u.id && !m.deliveredAt).length;
-          const unread = ms.filter(m => m.to === u.id && m.deliveredAt && !m.readAt).length;
-          const state = isContact ? 'É seu contato' : fromMe ? 'Recebeu sua solicitação' : toMe ? 'Pediu para te adicionar' : 'Ainda não conectado';
-          return `<div class="test-user"><div style="display:flex;gap:12px;align-items:center">${avatar(u)}
-            <div class="grow"><b>${esc(u.name)}</b> <span class="handle">#${esc(u.number)}</span><br>
-            <small class="muted">${state}${waiting ? `, com ${waiting} mensagem(ns) guardada(s) no servidor` : ''}</small></div></div>
-            <div class="btn-row">
-              ${fromMe ? `<button class="btn sm primary" data-t="accept" data-id="${esc(fromMe.id)}" data-u="${esc(u.id)}">Aceitar como ${esc(u.name)}</button><button class="btn sm" data-t="decline" data-id="${esc(fromMe.id)}" data-u="${esc(u.id)}">Recusar</button>` : ''}
-              ${!isContact && !fromMe && !toMe ? `<button class="btn sm" data-t="request" data-u="${esc(u.id)}">Enviar solicitação para mim</button>` : ''}
-              ${waiting ? `<button class="btn sm" data-t="online" data-u="${esc(u.id)}">Ficar online e receber</button>` : ''}
-              ${unread ? `<button class="btn sm" data-t="read" data-u="${esc(u.id)}">Ler suas mensagens</button>` : ''}
-            </div>
-            ${isContact ? `<form class="inline-form" data-reply="${esc(u.id)}"><input name="body" placeholder="Responder como ${esc(u.name)}" maxlength="500"><button class="btn sm">Enviar</button></form>` : ''}
-          </div>`;
-        }).join('') : '<p class="muted">Crie um usuário de teste para simular outra pessoa.</p>'}
-        <button class="btn danger" data-t="reset" style="width:100%;margin-top:12px">Apagar todos os dados de teste</button>`;
-    };
-    tp.addEventListener('click', async e => {
-      const b = e.target.closest('button[data-t]'); if (!b) return;
-      const t = b.dataset.t, u = b.dataset.u;
-      try {
-        if (t === 'offline') { Connection.simOffline = !Connection.simOffline; Bus.emit('conn'); }
-        else if (t === 'accept' || t === 'decline') await SimServer.respond(b.dataset.id, u, t === 'accept');
-        else if (t === 'request') { await Sync.ensureRegistered(); await SimServer.sendRequest(u, me.userId); toast('Solicitação criada. Veja em Mensagens, Pedidos.'); }
-        else if (t === 'online') await SimServer.pull(u);
-        else if (t === 'read') await SimServer.markRead(u, me.userId);
-        else if (t === 'reset') {
-          if (!(await confirmSheet('Apagar dados de teste?', 'Remove usuários de teste, contatos, solicitações e mensagens. Notas e calendário não são afetados.'))) return;
-          await SimServer.test.reset(); toast('Dados de teste apagados');
-        }
-        else return;
-        Sync.soon(); await render();
-      } catch (x) { toast(x.message); }
-    });
-    tp.addEventListener('submit', async e => {
-      e.preventDefault();
-      const f = e.target, val = String(new FormData(f).get(f.id === 'newTest' ? 'name' : 'body') || '').trim().replace(/\s+/g, ' ');
-      try {
-        if (f.id === 'newTest') {
-          const bad = validName(val); if (bad) return toast(bad);
-          const u = await SimServer.test.create(val); toast(`${u.name} #${u.number} criado`);
-        } else if (f.dataset.reply) {
-          if (!val) return;
-          await SimServer.sendMessage({ id: uid(), from: f.dataset.reply, to: me.userId, body: val, createdAt: now() });
-          toast('Mensagem enviada ao servidor de teste');
-        }
-        Sync.soon(); await render();
-      } catch (x) { toast(x.message); }
-    });
-    await render();
   }
 });
 
@@ -1149,6 +1419,8 @@ Platform.register({
   async mount(view, params) { return params[0] ? this.editor(view, params[0]) : this.list(view); },
 
   async list(view) {
+    if (this.offData) this.offData();
+    this.offData = Bus.on('data', () => this.list(view));
     view.innerHTML = `<div class="pad">
       <input class="search" type="search" id="nq" placeholder="Pesquisar notas" aria-label="Pesquisar notas" value="${esc(this.state.q)}">
       <div class="chips" id="chips" role="toolbar" aria-label="Filtrar notas"></div>
@@ -1246,6 +1518,7 @@ Platform.register({
   },
 
   async unmount() {
+    if (this.offData) { this.offData(); this.offData = null; }
     if (this.flush) { await this.flush(); this.flush = null; }
     if (this.cleanup) { this.cleanup(); this.cleanup = null; }
   }
@@ -1505,7 +1778,9 @@ Platform.register({
     $('#dlist').addEventListener('click', e => { const b = e.target.closest('[data-id]'); if (b) openForm(events.find(x => x.id === b.dataset.id)); });
     $('#newEv').onclick = () => openForm(null);
     renderMonth(); renderDay();
-  }
+    this.offData = Bus.on('data', reload);
+  },
+  unmount() { if (this.offData) { this.offData(); this.offData = null; } }
 });
 
 /* =========================================================
@@ -1513,21 +1788,23 @@ Platform.register({
    ========================================================= */
 const FEATURES = [
   ['Tela inicial e central de módulos', 'ok'],
-  ['Notas: criar, editar, excluir, pesquisar, favoritar, categorizar, salvar sozinha', 'ok'],
-  ['Calculadora com histórico', 'ok'],
-  ['Calendário: mês, dias, criar, editar e excluir eventos', 'ok'],
-  ['Banco local no aparelho (IndexedDB)', 'ok'],
-  ['Fila local de alterações para sincronizar', 'ok'],
-  ['Perfil com nome, foto e identificador (neste aparelho)', 'ok'],
-  ['Telas e regras de contatos, solicitações e conversas', 'ok'],
-  ['Estados da mensagem, fila de pendentes e reenvio sem duplicar', 'ok'],
-  ['Gerenciador de conexão (escolhe o canal ou deixa pendente)', 'ok'],
-  ['Servidor de teste local para simular outras pessoas', 'proto'],
-  ['Identificador garantido como único entre todos os usuários', 'backend'],
-  ['Encontrar pessoas reais e conversar pela internet', 'backend'],
-  ['Sincronização com banco central', 'backend'],
-  ['Acesso pelo computador com código temporário', 'backend'],
-  ['Notificação de nova mensagem e aviso de lembrete', 'android'],
+  ['Notas, calculadora e calendário', 'ok'],
+  ['Banco local no aparelho (IndexedDB) e fila de alterações', 'ok'],
+  ['Perfil com nome, foto e identificador', 'ok'],
+  ['Conta: entrar, criar, confirmar e-mail, recuperar senha, sair', 'ok'],
+  ['Banco central com acesso só aos próprios dados (Supabase + RLS)', 'ok'],
+  ['Identificador garantido como único pelo banco', 'ok'],
+  ['Contatos e solicitações entre pessoas reais', 'ok'],
+  ['Mensagens pela internet, em redes diferentes', 'ok'],
+  ['Mensagem guardada no servidor até o destinatário voltar', 'ok'],
+  ['Atualização em tempo real', 'ok'],
+  ['Notas e eventos sincronizados entre aparelhos', 'ok'],
+  ['Conflito simples: a edição mais recente vence', 'ok'],
+  ['Abrir o app sem internet (depois do primeiro acesso)', 'ok'],
+  ['Notificação com o app aberto ou em segundo plano', 'ok'],
+  ['Notificação com o app fechado (push)', 'backend'],
+  ['Vincular computador por código temporário', 'future'],
+  ['Notificações nativas e lembretes no APK', 'android'],
   ['Comunicação por Bluetooth', 'android'],
   ['Bloquear usuário', 'future'],
   ['Instalar novos módulos pelo botão +', 'future'],
@@ -1554,10 +1831,11 @@ const Status = {
         </dl>
         ${persisted || !(navigator.storage && navigator.storage.persist) ? '' : '<button class="btn" id="persist" style="width:100%;margin-top:8px">Proteger dados contra limpeza automática</button>'}
       </section>
-      <section class="panel"><h2>Servidor</h2>
-        <div class="switch-row"><span>Modo de teste local ${tag('proto')}</span>
-          <button class="switch" role="switch" id="simMode" aria-checked="${Backend.mode === 'sim'}" aria-label="Modo de teste local"></button></div>
-        <p class="muted small" style="margin:0">Simula o servidor central dentro deste aparelho para testar perfil, contatos, solicitações e mensagens. Não conecta com outras pessoas de verdade.</p>
+      <section class="panel"><h2>Conta e servidor</h2>
+        <dl class="kv"><dt>Conta</dt><dd style="overflow-wrap:anywhere">${Cloud.user ? esc(Cloud.user.email) : 'Não conectada'}</dd>
+          <dt>Servidor</dt><dd>${Cloud.sb ? 'Supabase' : 'Indisponível'}</dd>
+          <dt>Tempo real</dt><dd>${Realtime.live ? 'Ativo' : 'Inativo'}</dd></dl>
+        <a class="btn" href="#/conta" style="display:flex;align-items:center;justify-content:center;text-decoration:none;color:var(--ink);margin-top:8px">${Cloud.user ? 'Ver conta' : 'Entrar ou criar conta'}</a>
         ${Sync.lastError ? `<p class="err" style="margin-top:10px">Última sincronização falhou: ${esc(Sync.lastError)}</p>` : ''}
       </section>
       <section class="panel"><h2>Aparência</h2>
@@ -1569,14 +1847,8 @@ const Status = {
       <section class="panel"><h2>Funcionalidades</h2>
         <ul class="status-list">${FEATURES.map(([n, k]) => `<li><span>${n}</span>${tag(k)}</li>`).join('')}</ul>
       </section>
-      <p class="muted small" style="margin-top:16px">Cada alteração entra numa fila deste aparelho. Quando o banco central existir (Fase 3), a fila será enviada e o contador voltará a zero.</p>
+      <p class="muted small" style="margin-top:16px">Cada alteração entra numa fila deste aparelho. Com a conta conectada e internet, a fila é enviada sozinha; sem internet, ela espera.</p>
     </div>`;
-    $('#simMode').onclick = async () => {
-      Backend.mode = Backend.mode === 'sim' ? 'none' : 'sim';
-      await Settings.set('backendMode', Backend.mode);
-      toast(Backend.mode === 'sim' ? 'Modo de teste ligado' : 'Modo de teste desligado');
-      Bus.emit('conn'); Sync.soon(); this.mount(view);
-    };
     const p = $('#persist');
     if (p) p.onclick = async () => {
       let ok = false; try { ok = await navigator.storage.persist(); } catch (e) {}
@@ -1601,13 +1873,26 @@ const Status = {
     if (!dev) { dev = uid(); await Settings.set('deviceId', dev); }
     App.deviceId = dev;
     applyTheme(await Settings.get('theme', 'system'));
-    Backend.mode = await Settings.get('backendMode', 'none');
     await Identity.load();
   } catch (e) { console.error(e); App.deviceId = App.deviceId || uid(); }
   if (DB.engine !== 'indexeddb') toast('Banco local indisponível: os dados desta sessão não serão salvos.');
+  if (Cloud.init()) {
+    try { const { data } = await Cloud.sb.auth.getSession(); Cloud.session = data.session; } catch (e) { console.error(e); }
+  }
+  // Volta do link do e-mail (confirmação / nova senha): limpa o endereço
+  const h = location.hash;
+  if (h && !h.startsWith('#/')) {
+    const q = new URLSearchParams(h.slice(1)), msg = q.get('error_description');
+    if (msg) toast(/expired|invalid/i.test(msg) ? 'O link expirou ou já foi usado. Peça um novo.' : msg.replace(/\+/g, ' '));
+    history.replaceState(null, '', location.pathname + location.search + (Cloud.recovery ? '#/conta/nova-senha' : '#/'));
+  } else if (Cloud.recovery) history.replaceState(null, '', location.pathname + location.search + '#/conta/nova-senha');
   window.addEventListener('hashchange', route);
   route();
   Sync.start();
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('./sw.js').catch(e => console.error('Service worker:', e));
+    navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'open') location.hash = e.data.url; });
+  }
 })();
 </script>
 </body>
