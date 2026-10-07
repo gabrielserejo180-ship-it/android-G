@@ -17,7 +17,7 @@
 :root{
   --bg:#E8EDF1; --surface:#FFFFFF; --surface-2:#F1F4F7; --ink:#17222E; --ink-2:#5A6878; --line:#D3DCE4;
   --primary:#2F5BD3; --on-primary:#FFFFFF; --danger:#C2334D;
-  --c-msg:#13897D; --c-notes:#C98A12; --c-calc:#3E4A5A; --c-cal:#C4385E; --c-files:#6B4FC4; --c-tasks:#2C8A57; --c-boleto:#C62828;
+  --c-msg:#13897D; --c-notes:#C98A12; --c-calc:#3E4A5A; --c-cal:#C4385E; --c-files:#6B4FC4; --c-tasks:#2C8A57; --c-boleto:#C62828; --c-store:#D9480F;
   --shadow:0 1px 2px rgba(23,34,46,.06), 0 6px 18px rgba(23,34,46,.07);
   --font:"Sora", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme:light;
@@ -29,7 +29,7 @@
   :root:not([data-theme="light"]){
     --bg:#0E151D; --surface:#17212C; --surface-2:#1F2B38; --ink:#E6ECF2; --ink-2:#93A1B0; --line:#2A3847;
     --primary:#7397FF; --on-primary:#0E151D; --danger:#FF6F86;
-    --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F; --c-files:#9C84F0; --c-tasks:#46C487; --c-boleto:#FF5A5A;
+    --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F; --c-files:#9C84F0; --c-tasks:#46C487; --c-boleto:#FF5A5A; --c-store:#FF8A4C;
     --shadow:0 1px 2px rgba(0,0,0,.3);
     color-scheme:dark;
   }
@@ -37,7 +37,7 @@
 :root[data-theme="dark"]{
   --bg:#0E151D; --surface:#17212C; --surface-2:#1F2B38; --ink:#E6ECF2; --ink-2:#93A1B0; --line:#2A3847;
   --primary:#7397FF; --on-primary:#0E151D; --danger:#FF6F86;
-  --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F; --c-files:#9C84F0; --c-tasks:#46C487; --c-boleto:#FF5A5A;
+  --c-msg:#2BB3A4; --c-notes:#E5AA3A; --c-calc:#62708A; --c-cal:#E8607F; --c-files:#9C84F0; --c-tasks:#46C487; --c-boleto:#FF5A5A; --c-store:#FF8A4C;
   --shadow:0 1px 2px rgba(0,0,0,.3);
   color-scheme:dark;
 }
@@ -283,8 +283,24 @@ a.row-item{cursor:pointer}
 .viewer-img{display:block;max-width:100%;max-height:60vh;margin:0 auto 14px;border-radius:12px}
 
 /* Apps em HTML dentro da plataforma */
-.html-app{display:block;flex:1;width:100%;border:0;background:#0a0a0a;
+.html-app{display:block;flex:1;width:100%;border:0;background:#fff;
   min-height:calc(100dvh - 60px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+
+/* Loja */
+.app-card{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:18px;padding:12px;margin-bottom:10px;cursor:pointer}
+.app-ic{flex:none;width:56px;height:56px;border-radius:18px;display:grid;place-items:center;font-size:1.7rem;color:#fff;box-shadow:var(--shadow)}
+.app-ic.lg{width:72px;height:72px;border-radius:22px;font-size:2.2rem}
+.app-info{flex:1;min-width:0}
+.app-info b{display:block;font-weight:600}
+.app-info small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--ink-2);font-size:.82rem;margin-top:2px}
+.app-info em{display:block;font-style:normal;color:var(--ink-2);font-size:.72rem;margin-top:4px}
+.app-head{display:flex;gap:14px;align-items:center}
+.pick-row{display:flex;flex-wrap:wrap;gap:8px}
+.pick-row button{width:42px;height:42px;border-radius:12px;border:2px solid transparent;background:var(--surface-2);font-size:1.3rem;cursor:pointer}
+.pick-row button[aria-pressed="true"]{border-color:var(--ink)}
+.pick-row .swatch{border-radius:50%}
+.emoji-in{margin-top:8px;width:90px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);text-align:center;font-size:1.3rem}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
 
 /* Módulo Tarefas */
 .quick-add{display:flex;gap:8px}
@@ -648,9 +664,9 @@ const tag = k => `<span class="tag ${TAGS[k][0]}">${TAGS[k][1]}</span>`;
    (plugin Capacitor) sem mudar os módulos.
    ========================================================= */
 const DB = (() => {
-  const NAME = 'nucleo', VERSION = 5;
+  const NAME = 'nucleo', VERSION = 6;
   const KEYS = { notes: 'id', events: 'id', calcHistory: 'id', settings: 'key', outbox: 'id',
-                 contacts: 'id', requests: 'id', messages: 'id', sim_users: 'id', sim_requests: 'id', sim_messages: 'id', files: 'id', user_files: 'id', tasks: 'id' };
+                 contacts: 'id', requests: 'id', messages: 'id', sim_users: 'id', sim_requests: 'id', sim_messages: 'id', files: 'id', user_files: 'id', tasks: 'id', apps: 'id', app_data: 'id' };
   let idb = null, mem = null, engine = 'none';
   const p = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
   const useMemory = () => { mem = {}; for (const k in KEYS) mem[k] = new Map(); engine = 'memory'; };
@@ -678,6 +694,7 @@ const DB = (() => {
           if (old < 3) d.createObjectStore('files', { keyPath: 'id' });   // anexos guardados no aparelho
           if (old < 4) d.createObjectStore('user_files', { keyPath: 'id' }); // módulo Arquivos
           if (old < 5) d.createObjectStore('tasks', { keyPath: 'id' });      // módulo Tarefas
+          if (old < 6) { d.createObjectStore('apps', { keyPath: 'id' }); d.createObjectStore('app_data', { keyPath: 'id' }); }   // Loja
         };
         req.onsuccess = () => { idb = req.result; idb.onversionchange = () => idb.close(); engine = 'indexeddb'; res(engine); };
         req.onerror = () => { useMemory(); res(engine); };
@@ -846,7 +863,7 @@ const Home = {
       <div class="clock" id="clock"></div>
       <div class="date" id="date"></div>
       <nav class="grid" aria-label="Aplicativos">
-        ${mods.map(m => `<a class="tile" href="#/${m.id}" style="--tile:var(${m.colorVar})">
+        ${mods.map(m => `<a class="tile" href="#/${m.id}" style="--tile:${m.color || `var(${m.colorVar})`}">
           <span class="ic" aria-hidden="true">${m.icon}${m.badge ? `<i class="badge">${esc(m.badge)}</i>` : ''}</span>
           <span>${esc(m.name)}</span></a>`).join('')}
         <button class="tile add" id="addMod"><span class="ic" aria-hidden="true">+</span><span>Adicionar</span></button>
@@ -863,13 +880,7 @@ const Home = {
       $('#date').textContent = cap(d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }));
     };
     tick(); this.timer = setInterval(tick, 10000);
-    $('#addMod').addEventListener('click', () => {
-      const el = Sheet.open(`<h2>Adicionar módulo</h2>
-        <p class="muted">Estes módulos estão planejados. A plataforma já está preparada para recebê-los sem mexer no que existe.</p>
-        <ul class="mod-list">${FUTURE_MODULES.map(([i, n]) => `<li><span class="mini-ic">${i}</span><span class="grow">${n}</span>${tag('future')}</li>`).join('')}</ul>
-        <div class="actions"><button class="btn grow" id="closeAdd">Fechar</button></div>`);
-      el.querySelector('#closeAdd').onclick = () => Sheet.close();
-    });
+    $('#addMod').addEventListener('click', () => { location.hash = '#/store'; });   // + abre a Loja
     $('#engine').textContent = DB.engine === 'indexeddb' ? 'Dados salvos neste aparelho' : 'Modo temporário: nada será salvo';
     const unread = (await DB.all('messages')).filter(m => m.status === 'received').length;
     const msgIc = view.querySelector('a[href="#/messages"] .ic');
@@ -896,7 +907,7 @@ const CONFIG = {
   // NUNCA coloque aqui a chave secreta (sb_secret_...).
   SUPABASE_KEY: 'sb_publishable_i-h-YWU1o1aPMGc3n92TNw_UHJbUSdt'
 };
-const APP_VERSION = '3.6';                     // mostre esta versão em Status para conferir se o celular atualizou
+const APP_VERSION = '4.0';                     // mostre esta versão em Status para conferir se o celular atualizou
 const appUrl = () => location.origin + location.pathname;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const iso = s => new Date(s).toISOString();
@@ -1188,6 +1199,7 @@ const Account = {
       await Identity.fromCloud(user);
       Realtime.start(user.id);
       Sync.soon();
+      setTimeout(() => Store.autoUpdate().catch(() => {}), 1500);
     } catch (e) { console.error(e); toast(mapErr(e).message); }
     Bus.emit('auth', 'APP_LOGIN');
   },
@@ -1199,6 +1211,7 @@ const Account = {
       : 'Os dados deste aparelho serão apagados. O que já está na nuvem volta quando você entrar de novo.';
     if (!(await confirmSheet('Sair da conta?', detail, 'Sair'))) return;
     Realtime.stop();
+    for (const a of await DB.all('apps')) if (!a.local && a.visibility === 'private' && a.ownerId === Cloud.user.id) await Store.uninstall(a.id);
     try { await Cloud.sb.auth.signOut({ scope: 'local' }); } catch (e) { console.error(e); }
     Cloud.session = null;
     await wipeUserData();
@@ -2735,22 +2748,342 @@ Platform.register({
 });
 
 /* =========================================================
-   10d. APPS EM HTML — qualquer app de arquivo único vira módulo
-   Para adicionar outro: guarde o HTML em base64 num <script type="text/plain">
-   e chame registerHtmlApp com o id dele.
+   10d. LOJA DE APPS + EXECUTOR DE APPS EM HTML
+   Cada app é um arquivo HTML único. Ele roda isolado (sandbox):
+   não enxerga sua conta, suas notas nem as mensagens.
    ========================================================= */
+const APP_SANDBOX = 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads';
+const APP_ICONS = ['📦', '🧮', '💰', '🧾', '📊', '🛒', '📋', '🗂️', '🏍️', '🎮', '📚', '⚙️'];
+const APP_COLORS = ['#2F5BD3', '#13897D', '#C4385E', '#C98A12', '#6B4FC4', '#2C8A57', '#C62828', '#3E4A5A'];
+const MAX_APP = 5 * 1048576;
+const safeColor = c => /^#[0-9a-f]{6}$/i.test(c || '') ? c : '#2F5BD3';
+
+/* Executor: monta o app num iframe isolado e guarda os dados dele (localStorage) no aparelho */
+const AppRunner = {
+  current: null,
+  async mount(view, appId, html) {
+    const rec = await DB.get('app_data', appId);
+    const data = (rec && rec.data) || {};
+    const S = '<scr' + 'ipt>', E = '</scr' + 'ipt>';
+    const shim = S + '(function(){var DATA=' + JSON.stringify(data).replace(/</g, '\\u003c') + ',ID=' + JSON.stringify(appId) + ';'
+      + 'function save(){try{parent.postMessage({__nucleo:"ls",appId:ID,data:DATA},"*")}catch(e){}}'
+      + 'var s={getItem:function(k){k=String(k);return Object.prototype.hasOwnProperty.call(DATA,k)?DATA[k]:null},'
+      + 'setItem:function(k,v){DATA[String(k)]=String(v);save()},removeItem:function(k){delete DATA[String(k)];save()},'
+      + 'clear:function(){DATA={};save()},key:function(i){return Object.keys(DATA)[i]||null},get length(){return Object.keys(DATA).length}};'
+      + 'try{Object.defineProperty(window,"localStorage",{value:s,configurable:true})}catch(e){}'
+      + 'try{Object.defineProperty(window,"sessionStorage",{value:{getItem:function(){return null},setItem:function(){},removeItem:function(){},clear:function(){},key:function(){return null},length:0},configurable:true})}catch(e){}'
+      + '})();' + E;
+    const doc = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, m => m + shim) : shim + html;
+    view.innerHTML = `<iframe class="html-app" sandbox="${APP_SANDBOX}" allow="clipboard-write; fullscreen" allowfullscreen title="App"></iframe>`;
+    const frame = view.querySelector('iframe');
+    frame.srcdoc = doc;
+    this.current = { appId, frame };
+  },
+  unmount() { this.current = null; }
+};
+window.addEventListener('message', async e => {
+  const d = e.data, cur = AppRunner.current;
+  if (!d || d.__nucleo !== 'ls' || !cur || e.source !== cur.frame.contentWindow || d.appId !== cur.appId) return;
+  let size = 0; try { size = JSON.stringify(d.data).length; } catch (x) { return; }
+  if (size > 5e6) { toast('O app tentou guardar dados demais.'); return; }
+  await DB.put('app_data', { id: cur.appId, data: d.data });
+});
+
+/* App interno (vem junto com a plataforma) */
 function registerHtmlApp({ id, name, icon, colorVar, source }) {
   Platform.register({
     id, name, icon, colorVar,
-    mount(view) {
+    async mount(view) {
       const src = document.getElementById(source);
       if (!src) { view.innerHTML = '<div class="empty"><p>App não encontrado.</p></div>'; return; }
-      view.innerHTML = `<iframe class="html-app" title="${esc(name)}" allow="clipboard-write"></iframe>`;
-      view.querySelector('iframe').srcdoc = new TextDecoder().decode(Uint8Array.from(atob(src.textContent.replace(/\s+/g, '')), c => c.charCodeAt(0)));
-    }
+      const html = new TextDecoder().decode(Uint8Array.from(atob(src.textContent.replace(/\s+/g, '')), c => c.charCodeAt(0)));
+      await AppRunner.mount(view, 'builtin-' + id, html);
+    },
+    unmount() { AppRunner.unmount(); }
   });
 }
 registerHtmlApp({ id: 'boletos', name: 'Boletos', icon: '🧾', colorVar: '--c-boleto', source: 'app-boletos' });
+
+/* Apps instalados viram ícones na tela inicial */
+function registerInstalled(rec) {
+  const mid = 'app-' + rec.id;
+  Platform.modules.delete(mid);
+  Platform.register({
+    id: mid, name: rec.name, icon: esc(rec.icon || '📦'), color: safeColor(rec.color), installed: true,
+    async mount(view) {
+      const r = await DB.get('apps', rec.id);
+      if (!r) { view.innerHTML = '<div class="empty"><p>Este app foi removido.</p></div>'; return; }
+      Topbar.setTitle(r.name);
+      await AppRunner.mount(view, r.id, r.html);
+    },
+    unmount() { AppRunner.unmount(); }
+  });
+}
+
+/* Dados da Loja */
+const viewOf = row => ({ id: row.id, ownerId: row.owner_id, name: row.name, icon: row.icon, color: row.color, description: row.description,
+  visibility: row.visibility, version: row.version, filePath: row.file_path, size: row.size, updatedAt: row.updated_at });
+const Store = {
+  admin: null,
+  async isAdmin() {
+    if (!Cloud.user) return false;
+    if (this.admin !== null) return this.admin;
+    try { this.admin = !!(await Cloud.q(Cloud.sb.rpc('is_store_admin'))); } catch (e) { this.admin = false; }
+    return this.admin;
+  },
+  async catalog() {
+    const rows = await Cloud.q(Cloud.sb.from('store_apps').select('id,owner_id,name,icon,color,description,visibility,version,file_path,size,updated_at')
+      .order('updated_at', { ascending: false }).limit(300));
+    return rows.map(viewOf);
+  },
+  async fetchHtml(app) {
+    const blob = await CloudServer.download(app.filePath, 'store');
+    return blob.text();
+  },
+  async install(app, html) {
+    html = html || await this.fetchHtml(app);
+    const prev = await DB.get('apps', app.id);
+    const rec = { id: app.id, ownerId: app.ownerId, name: app.name, icon: app.icon, color: app.color, description: app.description,
+      visibility: app.visibility, version: app.version, size: app.size, html, local: !!app.local, installedAt: prev ? prev.installedAt : now(), updatedAt: now() };
+    await DB.put('apps', rec);
+    registerInstalled(rec);
+    return rec;
+  },
+  async uninstall(id) {
+    await DB.del('apps', id); await DB.del('app_data', id);
+    Platform.modules.delete('app-' + id);
+  },
+  // Atualiza sozinho os apps instalados quando sai versão nova (como a Play Store)
+  async autoUpdate() {
+    if (!Cloud.user || !navigator.onLine) return;
+    const installed = (await DB.all('apps')).filter(a => !a.local);
+    if (!installed.length) return;
+    let rows;
+    try { rows = await Cloud.q(Cloud.sb.from('store_apps').select('id,owner_id,name,icon,color,description,visibility,version,file_path,size,updated_at').in('id', installed.map(a => a.id))); }
+    catch (e) { return; }
+    let n = 0;
+    for (const row of rows.map(viewOf)) {
+      const loc = installed.find(a => a.id === row.id);
+      if (!loc) continue;
+      if (row.version > loc.version) { try { await this.install(row); n++; } catch (e) { console.warn(e); } }
+      else if (row.name !== loc.name || row.icon !== loc.icon || row.color !== loc.color || row.description !== loc.description) {
+        const rec = { ...loc, name: row.name, icon: row.icon, color: row.color, description: row.description };
+        await DB.put('apps', rec); registerInstalled(rec);
+      }
+    }
+    if (n) toast(n === 1 ? '1 app foi atualizado' : `${n} apps foram atualizados`);
+  }
+};
+
+/* Tela da Loja */
+Platform.register({
+  id: 'store', name: 'Loja', icon: '🛍️', colorVar: '--c-store',
+  state: { tab: 'explorar', q: '' }, rows: null, loadError: null, off: [],
+  unmount() { this.off.forEach(f => f()); this.off = []; },
+  async mount(view) {
+    view.innerHTML = `<div id="st">
+      <nav class="tabs" aria-label="Seções"><a href="#" data-tab="explorar">Explorar</a><a href="#" data-tab="instalados">Instalados</a><a href="#" data-tab="meus">Meus apps</a></nav>
+      <div class="pad" style="padding-top:0">
+        <input class="search" type="search" id="sq" placeholder="Pesquisar apps" aria-label="Pesquisar apps" value="${esc(this.state.q)}">
+        <div id="snote" style="margin-top:12px"></div><div id="slist"></div>
+      </div>
+      <div class="fab-wrap"><button class="fab" id="sadd" style="--fab:var(--c-store)">+ Adicionar app</button></div>
+    </div>`;
+    const root = $('#st');
+    root.addEventListener('click', e => {
+      const t = e.target.closest('[data-tab]');
+      if (t) { e.preventDefault(); this.state.tab = t.dataset.tab; this.render(); return; }
+      const b = e.target.closest('[data-act]');
+      const card = e.target.closest('[data-id]');
+      if (!card) return;
+      const app = this.find(card.dataset.id); if (!app) return;
+      if (b) this.action(b.dataset.act, app, b); else this.details(app);
+    });
+    $('#sq').addEventListener('input', e => { this.state.q = e.target.value; this.render(); });
+    $('#sadd').onclick = () => this.form(null);
+    this.off.push(Bus.on('auth', () => { this.rows = null; Store.admin = null; this.load(); }));
+    await this.render();
+    this.load();
+  },
+  async load() {
+    if (!Cloud.user || !navigator.onLine) { this.rows = []; this.loadError = null; return this.render(); }
+    try { this.rows = await Store.catalog(); this.loadError = null; }
+    catch (e) { this.rows = []; this.loadError = mapErr(e); }
+    await Store.isAdmin();
+    this.render();
+    Store.autoUpdate().then(() => this.render());
+  },
+  installedMap: new Map(),
+  find(id) {
+    const r = (this.rows || []).find(x => x.id === id);
+    const loc = this.installedMap.get(id);
+    return r ? { ...r, installed: loc || null } : loc ? { ...loc, installed: loc } : null;
+  },
+  async render() {
+    if (!$('#st')) return;
+    const { tab } = this.state, q = norm(this.state.q);
+    $('#st').querySelectorAll('[data-tab]').forEach(a => a.setAttribute('aria-current', a.dataset.tab === tab ? 'page' : 'false'));
+    const installed = await DB.all('apps');
+    this.installedMap = new Map(installed.map(a => [a.id, a]));
+    const me = Cloud.user && Cloud.user.id;
+    const rows = this.rows || [];
+    let list;
+    if (tab === 'explorar') list = rows.filter(r => r.visibility === 'public');
+    else if (tab === 'instalados') list = installed.map(a => ({ ...(rows.find(r => r.id === a.id) || a) })).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    else list = [...rows.filter(r => r.ownerId === me), ...installed.filter(a => a.local)];
+    list = list.filter(a => !q || norm(a.name + ' ' + (a.description || '')).includes(q));
+
+    let note = '';
+    if (!Cloud.user) note = '<a href="#/conta">Entre na conta</a> para ver os apps da Loja. Sem conta, você ainda pode adicionar apps só neste aparelho.';
+    else if (this.loadError && this.loadError.code === 'SCHEMA') note = 'A Loja ainda não foi criada no servidor: rode o SQL da Loja no Supabase.';
+    else if (this.loadError) note = 'Não foi possível carregar a Loja: ' + esc(this.loadError.message);
+    else if (this.rows === null) note = 'Carregando a Loja…';
+    $('#snote').innerHTML = note ? `<p class="sim-banner">${note}</p>` : '';
+
+    const empty = {
+      explorar: ['Nenhum app publicado ainda.', Store.admin ? 'Toque em “Adicionar app” e escolha “Pública na Loja”.' : 'Quando apps forem publicados, eles aparecem aqui.'],
+      instalados: ['Nenhum app instalado.', 'Instale pela aba Explorar ou adicione um arquivo HTML.'],
+      meus: ['Você ainda não adicionou apps.', 'Toque em “Adicionar app” e escolha um arquivo .html.']
+    }[tab];
+    $('#slist').innerHTML = list.length ? list.map(a => this.card(a)).join('') : `<div class="empty"><p>${empty[0]}</p><p>${empty[1]}</p></div>`;
+  },
+  card(a) {
+    const loc = this.installedMap.get(a.id);
+    const remote = (this.rows || []).find(r => r.id === a.id);
+    const hasUpdate = loc && remote && remote.version > loc.version;
+    const btn = !loc ? '<button class="btn sm primary" data-act="install">Instalar</button>'
+      : hasUpdate ? '<button class="btn sm primary" data-act="update">Atualizar</button>'
+      : '<button class="btn sm" data-act="open">Abrir</button>';
+    const badges = [];
+    if (a.local) badges.push('Só neste aparelho');
+    else if (a.visibility === 'public') badges.push('Pública');
+    else badges.push('Só para mim');
+    badges.push('v' + (a.version || 1));
+    if (a.size) badges.push(fmtBytes(a.size));
+    if (hasUpdate) badges.push('Atualização disponível');
+    return `<div class="app-card" data-id="${esc(a.id)}" role="button" tabindex="0">
+      <div class="app-ic" style="background:${safeColor(a.color)}" aria-hidden="true">${esc(a.icon || '📦')}</div>
+      <div class="app-info"><b>${esc(a.name)}</b>${a.description ? `<small>${esc(a.description)}</small>` : ''}<em>${badges.map(esc).join(', ')}</em></div>
+      ${btn}</div>`;
+  },
+  async action(act, app, btn) {
+    if (act === 'open') { location.hash = '#/app-' + app.id; return; }
+    if (act === 'install' || act === 'update') {
+      if (!Cloud.user || !navigator.onLine) return toast('Precisa de internet e conta para baixar.');
+      if (btn) { btn.disabled = true; btn.textContent = 'Baixando…'; }
+      try { await Store.install(app); toast(act === 'install' ? `${app.name} instalado: já está na tela inicial` : `${app.name} atualizado`); }
+      catch (e) { toast(mapErr(e).message); }
+      this.render();
+    }
+  },
+  details(app) {
+    const loc = this.installedMap.get(app.id), me = Cloud.user && Cloud.user.id;
+    const mine = app.local || app.ownerId === me;
+    const el = Sheet.open(`<div class="app-head"><div class="app-ic lg" style="background:${safeColor(app.color)}">${esc(app.icon || '📦')}</div>
+        <div><h2 style="margin:0">${esc(app.name)}</h2><p class="muted small" style="margin:4px 0 0">Versão ${app.version || 1}${app.size ? ', ' + fmtBytes(app.size) : ''}${mine ? ', publicado por você' : ''}</p></div></div>
+      ${app.description ? `<p style="margin:14px 0">${esc(app.description)}</p>` : ''}
+      <p class="hint">O app roda isolado: não acessa sua conta, suas mensagens nem os outros módulos.</p>
+      <div class="sheet-menu">
+        ${loc ? '<button class="btn primary" data-m="open">Abrir</button>' : '<button class="btn primary" data-m="install">Instalar</button>'}
+        ${mine ? '<button class="btn" data-m="edit">Editar ou enviar nova versão</button>' : ''}
+        ${loc ? '<button class="btn" data-m="uninstall">Remover deste aparelho</button>' : ''}
+        ${mine && !app.local ? '<button class="btn danger" data-m="delete">Excluir da Loja</button>' : ''}
+      </div>`);
+    el.querySelector('.sheet-menu').addEventListener('click', async e => {
+      const b = e.target.closest('[data-m]'); if (!b) return;
+      const m = b.dataset.m;
+      if (m === 'open') { Sheet.close(); location.hash = '#/app-' + app.id; }
+      else if (m === 'install') { Sheet.close(); this.action('install', app); }
+      else if (m === 'edit') this.form(app);
+      else if (m === 'uninstall') {
+        if (!(await confirmSheet(`Remover ${app.name}?`, app.local ? 'Este app só existe neste aparelho: ele e os dados dele serão apagados.' : 'Os dados salvos pelo app neste aparelho também serão apagados. Você pode instalar de novo pela Loja.', 'Remover'))) return;
+        await Store.uninstall(app.id); toast('App removido'); this.render();
+      } else if (m === 'delete') {
+        if (!(await confirmSheet(`Excluir ${app.name} da Loja?`, 'Ninguém mais conseguirá instalar. Quem já instalou continua com a cópia no aparelho.'))) return;
+        try {
+          await Cloud.q(Cloud.sb.from('store_apps').delete().eq('id', app.id));
+          await CloudServer.remove(app.filePath, 'store');
+          await Store.uninstall(app.id);
+          toast('App excluído da Loja'); this.load();
+        } catch (x) { toast(mapErr(x).message); }
+      }
+    });
+  },
+  async form(app) {
+    const isNew = !app, admin = await Store.isAdmin();
+    let icon = app ? app.icon : '📦', color = app ? safeColor(app.color) : APP_COLORS[0], vis = app ? (app.visibility || 'private') : 'private';
+    const el = Sheet.open(`<form id="af" novalidate><h2>${isNew ? 'Adicionar app' : 'Editar app'}</h2>
+      <label class="field"><span>${isNew ? 'Arquivo do app (.html)' : 'Nova versão (opcional, .html)'}</span><input type="file" name="file" accept=".html,.htm,text/html"></label>
+      <label class="field"><span>Nome</span><input name="name" maxlength="30" value="${esc(app ? app.name : '')}" placeholder="Ex.: Calculadora de Juros"></label>
+      <div class="block"><p class="block-label">Ícone</p>
+        <div class="pick-row" id="picon">${APP_ICONS.map(i => `<button type="button" data-i="${i}" aria-pressed="${i === icon}">${i}</button>`).join('')}</div>
+        <input class="emoji-in" id="iconIn" maxlength="8" value="${esc(icon)}" aria-label="Ou digite um emoji"></div>
+      <div class="block"><p class="block-label">Cor</p>
+        <div class="pick-row" id="pcolor">${APP_COLORS.map(c => `<button type="button" class="swatch" data-c="${c}" style="background:${c}" aria-label="Cor ${c}" aria-pressed="${c === color}"></button>`).join('')}</div></div>
+      <label class="field"><span>Descrição</span><textarea name="description" rows="2" maxlength="300" placeholder="Para que serve o app">${esc(app ? app.description || '' : '')}</textarea></label>
+      ${Cloud.user && !(app && app.local) ? `<div class="block"><p class="block-label">Quem pode instalar</p>
+        <div class="seg" id="pvis" role="radiogroup" style="margin-top:0">
+          <button type="button" role="radio" data-v="private" aria-checked="${vis === 'private'}">Só eu</button>
+          <button type="button" role="radio" data-v="public" aria-checked="${vis === 'public'}" ${admin ? '' : 'disabled'}>Todos na Loja</button></div>
+        ${admin ? '' : '<p class="hint" style="margin-top:6px">Publicar para todos é só para administradores da Loja.</p>'}</div>`
+        : '<p class="hint">Sem conta, o app fica só neste aparelho.</p>'}
+      <p class="err" id="aferr" role="alert"></p>
+      <div class="actions"><button type="button" class="btn grow" id="afcancel">Cancelar</button><button class="btn primary grow" type="submit">${isNew ? 'Adicionar' : 'Salvar'}</button></div></form>`);
+    const form = el.querySelector('#af'), err = m => { el.querySelector('#aferr').textContent = m; };
+    const pick = (sel, attr, val) => el.querySelectorAll(sel + ' button').forEach(b => b.setAttribute('aria-pressed', b.dataset[attr] === val));
+    el.querySelector('#picon').addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (!b) return; icon = b.dataset.i; el.querySelector('#iconIn').value = icon; pick('#picon', 'i', icon); });
+    el.querySelector('#iconIn').addEventListener('input', e => { icon = e.target.value.trim(); pick('#picon', 'i', icon); });
+    el.querySelector('#pcolor').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (!b) return; color = b.dataset.c; pick('#pcolor', 'c', color); });
+    const pv = el.querySelector('#pvis');
+    if (pv) pv.addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (!b || b.disabled) return; vis = b.dataset.v; pv.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-checked', x === b)); });
+    form.file.addEventListener('change', () => {
+      const f = form.file.files[0];
+      if (f && !form.name.value.trim()) form.name.value = f.name.replace(/\.(html?|htm)$/i, '').replace(/[-_]+/g, ' ').slice(0, 30);
+    });
+    el.querySelector('#afcancel').onclick = () => Sheet.close();
+    form.addEventListener('submit', async e => {
+      e.preventDefault(); err('');
+      const f = form.file.files[0];
+      if (isNew && !f) return err('Escolha o arquivo .html do app.');
+      const name = form.name.value.trim().replace(/\s+/g, ' '), bad = validName(name);
+      if (bad) return err(bad);
+      if (!icon) icon = '📦';
+      let html = null;
+      if (f) {
+        if (f.size > MAX_APP) return err(`O arquivo passa de ${fmtBytes(MAX_APP)}.`);
+        html = await f.text();
+        if (!/<(!doctype|html|body|script|div|main|style)/i.test(html)) return err('Esse arquivo não parece ser um app em HTML.');
+      }
+      const btn = form.querySelector('[type=submit]'); btn.disabled = true; btn.textContent = 'Salvando…';
+      try {
+        await this.save(app, { html, name, icon, color, description: form.description.value.trim(), visibility: vis });
+        Sheet.close();
+        toast(isNew ? `${name} adicionado: já está na tela inicial` : 'App atualizado');
+        this.state.tab = isNew ? 'meus' : this.state.tab;
+        this.load();
+      } catch (x) { err(mapErr(x).message); btn.disabled = false; btn.textContent = isNew ? 'Adicionar' : 'Salvar'; }
+    });
+  },
+  async save(app, { html, name, icon, color, description, visibility }) {
+    const size = html ? new Blob([html]).size : (app ? app.size : 0);
+    // Sem conta (ou app local): fica só neste aparelho
+    if (!Cloud.user || (app && app.local)) {
+      const prev = app ? await DB.get('apps', app.id) : null;
+      return Store.install({ id: app ? app.id : uid(), local: true, name, icon, color, description, visibility: 'private',
+        version: (prev ? prev.version : 0) + (html || !prev ? 1 : 0), size }, html || prev.html);
+    }
+    if (!navigator.onLine) throw new Error('Sem internet. Tente de novo quando a conexão voltar.');
+    const me = Cloud.user.id, id = app ? app.id : uid();
+    const version = app ? app.version + (html ? 1 : 0) : 1;
+    const filePath = html ? `${me}/${id}/v${version}.html` : app.filePath;
+    if (html) await CloudServer.upload(filePath, new Blob([html], { type: 'text/plain' }), 'text/plain;charset=utf-8', 'store');
+    await Cloud.q(Cloud.sb.from('store_apps').upsert({ id, owner_id: me, name, icon, color, description, visibility, version, file_path: filePath, size }, { onConflict: 'id' }));
+    if (html && app && app.filePath !== filePath) CloudServer.remove(app.filePath, 'store');   // apaga a versão antiga
+    const view = { id, ownerId: me, name, icon, color, description, visibility, version, filePath, size };
+    const loc = await DB.get('apps', id);
+    await Store.install(view, html || (loc && loc.html) || undefined);
+  }
+});
 
 /* =========================================================
    11. STATUS DO SISTEMA — o que é real e o que falta
@@ -2784,6 +3117,8 @@ const FEATURES = [
   ['Aviso no horário da tarefa', 'android'],
   ['Tarefas que se repetem', 'future'],
   ['Calculadora de Boletos (multa, juros, WhatsApp)', 'ok'],
+  ['Loja: adicionar, publicar, instalar e atualizar apps em HTML', 'ok'],
+  ['Apps rodam isolados, sem acesso à conta e aos dados', 'ok'],
   ['Grupos e chamadas', 'future']
 ];
 const Status = {
@@ -2863,6 +3198,7 @@ const Status = {
     if (msg) toast(/expired|invalid/i.test(msg) ? 'O link expirou ou já foi usado. Peça um novo.' : msg.replace(/\+/g, ' '));
     history.replaceState(null, '', location.pathname + location.search + (Cloud.recovery ? '#/conta/nova-senha' : '#/'));
   } else if (Cloud.recovery) history.replaceState(null, '', location.pathname + location.search + '#/conta/nova-senha');
+  try { for (const a of await DB.all('apps')) registerInstalled(a); } catch (e) { console.error(e); }
   window.addEventListener('hashchange', route);
   route();
   Sync.start();
